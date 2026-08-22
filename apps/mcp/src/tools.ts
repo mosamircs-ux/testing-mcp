@@ -13,8 +13,13 @@ const testGenerator = new TestGenerator();
 const failureAnalyzer = new FailureAnalyzer();
 const autoHealer = new AutoHealer();
 
-export async function handleListProjects() {
+export async function handleListProjects(context?: { organizationId?: string; projectId?: string }) {
+  const whereClause: any = {};
+  if (context?.organizationId) whereClause.organizationId = context.organizationId;
+  if (context?.projectId) whereClause.id = context.projectId;
+
   const projects = await prisma.project.findMany({
+    where: Object.keys(whereClause).length > 0 ? whereClause : undefined,
     include: {
       environments: true,
       testSuites: {
@@ -32,6 +37,7 @@ export async function handleListProjects() {
         text: JSON.stringify(
           projects.map((p) => ({
             id: p.id,
+            organizationId: p.organizationId,
             name: p.name,
             slug: p.slug,
             category: p.category,

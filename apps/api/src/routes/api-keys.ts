@@ -1,24 +1,32 @@
 import { Router } from 'express';
 import { prisma } from '@novaqa/database';
 import { ApiKeyService } from '@novaqa/auth';
-import { z } from 'zod';
+import { CreateApiKeySchema } from '@novaqa/types';
+import { NotFoundError, BadRequestError } from '@novaqa/shared';
+import { authMiddleware, requirePermission } from '../middleware/auth';
 
 export const apiKeysRouter = Router();
 
-const CreateApiKeySchema = z.object({
-  name: z.string().min(2).max(100)
-});
+// Apply auth middleware to all api-keys endpoints
+apiKeysRouter.use(authMiddleware);
 
-// List API Keys
-apiKeysRouter.get('/api/v1/api-keys', async (req, res, next) => {
+// 1. List API Keys in active organization (requires api_key.read)
+apiKeysRouter.get('/api/v1/api-keys', requirePermission('api_key.read'), async (req, res, next) => {
   try {
-    const orgId = req.auth?.organizationId;
+    const orgId = req.auth!.organizationId;
+
     const keys = await prisma.apiKey.findMany({
-      where: orgId ? { organizationId: orgId } : undefined,
+      where: {
+        organizationId: orgId,
+        revokedAt: null
+      },
       select: {
         id: true,
         name: true,
         keyPrefix: true,
+        scope: true,
+        projectId: true,
+        project: { select: { id: true, name: true, slug: true } },
         lastUsedAt: true,
         expiresAt: true,
         createdAt: true,
@@ -33,26 +41,42 @@ apiKeysRouter.get('/api/v1/api-keys', async (req, res, next) => {
   }
 });
 
-// Create new API Key (Returns raw secret only once)
-apiKeysRouter.post('/api/v1/api-keys', async (req, res, next) => {
+// 2. Create new API Key (Returns raw secret only once, requires api_key.create)
+apiKeysRouter.post('/api/v1/api-keys', requirePermission('api_key.create'), async (req, res, next) => {
   try {
     const payload = CreateApiKeySchema.parse(req.body);
-    const orgId = req.auth?.organizationId;
-    const userId = req.auth?.userId;
+    const orgId = req.auth!.organizationId;
+    const userId = req.auth!.userId;
 
-    if (!orgId || !userId) {
-      return res.status(401).json({ success: false, message: 'Authentication required' });
+    // If project specified, verify it belongs to this organization
+    if (payload.projectId) {
+      const proj = await prisma.project.findFirst({
+        where: { id: payload.projectId, organizationId: orgId }
+      });
+      if (!proj) {
+        throw new NotFoundError('Project', payload.projectId);
+      }
     }
 
     const { rawKey, keyPrefix, hashedKey } = ApiKeyService.generateApiKey();
+
+    const expiresAt = payload.expiresInDays
+      ? new Date(Date.now() + payload.expiresInDays * 24 * 60 * 60 * 1000)
+      : null;
 
     const record = await prisma.apiKey.create({
       data: {
         organizationId: orgId,
         userId: userId,
+        projectId: payload.projectId || null,
         name: payload.name,
         keyPrefix,
-        hashedKey
+        hashedKey,
+        scope: payload.scope || 'ALL',
+        expiresAt
+      },
+      include: {
+        project: { select: { id: true, name: true } }
       }
     });
 
@@ -63,6 +87,10 @@ apiKeysRouter.post('/api/v1/api-keys', async (req, res, next) => {
         name: record.name,
         keyPrefix: record.keyPrefix,
         rawApiKey: rawKey,
+        projectId: record.projectId,
+        projectName: record.project?.name,
+        scope: record.scope,
+        expiresAt: record.expiresAt,
         createdAt: record.createdAt
       }
     });
@@ -71,11 +99,24 @@ apiKeysRouter.post('/api/v1/api-keys', async (req, res, next) => {
   }
 });
 
-// Revoke API Key
-apiKeysRouter.delete('/api/v1/api-keys/:id', async (req, res, next) => {
+// 3. Revoke API Key (requires api_key.delete, tenant-scoped)
+apiKeysRouter.delete('/api/v1/api-keys/:id', requirePermission('api_key.delete'), async (req, res, next) => {
   try {
-    await prisma.apiKey.delete({
-      where: { id: req.params.id }
+    const key = await prisma.apiKey.findFirst({
+      where: {
+        id: req.params.id,
+        organizationId: req.auth!.organizationId
+      }
+    });
+
+    if (!key) {
+      throw new NotFoundError('ApiKey', req.params.id);
+    }
+
+    // Soft revoke and clean sessions
+    await prisma.apiKey.update({
+      where: { id: req.params.id },
+      data: { revokedAt: new Date() }
     });
 
     return res.json({ success: true, message: 'API key revoked successfully' });

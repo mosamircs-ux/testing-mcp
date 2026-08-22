@@ -2,18 +2,30 @@ import { Router } from 'express';
 import { ProjectAnalyzer, TestGenerator, FailureAnalyzer, AutoHealer } from '@novaqa/ai';
 import { AIAnalyzeProjectSchema, AIGenerateTestsSchema, AIFailureTriageSchema, AIAutoHealSchema } from '@novaqa/types';
 import { prisma } from '@novaqa/database';
+import { NotFoundError } from '@novaqa/shared';
+import { authMiddleware, requirePermission } from '../middleware/auth';
 
 export const aiRouter = Router();
+aiRouter.use(authMiddleware);
 
 const projectAnalyzer = new ProjectAnalyzer();
 const testGenerator = new TestGenerator();
 const failureAnalyzer = new FailureAnalyzer();
 const autoHealer = new AutoHealer();
 
-// AI Project Specification & Flow Discovery
-aiRouter.post('/api/v1/ai/analyze-project', async (req, res, next) => {
+// AI Project Specification & Flow Discovery (requires ai.trigger)
+aiRouter.post('/api/v1/ai/analyze-project', requirePermission('ai.trigger'), async (req, res, next) => {
   try {
     const payload = AIAnalyzeProjectSchema.parse(req.body);
+
+    const project = await prisma.project.findFirst({
+      where: { id: payload.projectId, organizationId: req.auth!.organizationId }
+    });
+
+    if (!project) {
+      throw new NotFoundError('Project', payload.projectId);
+    }
+
     const result = await projectAnalyzer.analyze(payload);
     res.json({ success: true, data: result });
   } catch (err) {
@@ -21,10 +33,19 @@ aiRouter.post('/api/v1/ai/analyze-project', async (req, res, next) => {
   }
 });
 
-// AI Test Generation
-aiRouter.post('/api/v1/ai/generate-tests', async (req, res, next) => {
+// AI Test Generation (requires ai.trigger)
+aiRouter.post('/api/v1/ai/generate-tests', requirePermission('ai.trigger'), async (req, res, next) => {
   try {
     const payload = AIGenerateTestsSchema.parse(req.body);
+
+    const project = await prisma.project.findFirst({
+      where: { id: payload.projectId, organizationId: req.auth!.organizationId }
+    });
+
+    if (!project) {
+      throw new NotFoundError('Project', payload.projectId);
+    }
+
     const result = await testGenerator.generateTests(payload);
 
     // If suiteId was provided, automatically persist generated tests to database
@@ -59,8 +80,8 @@ aiRouter.post('/api/v1/ai/generate-tests', async (req, res, next) => {
   }
 });
 
-// AI Failure Triage
-aiRouter.post('/api/v1/ai/triage-failure', async (req, res, next) => {
+// AI Failure Triage (requires ai.trigger)
+aiRouter.post('/api/v1/ai/triage-failure', requirePermission('ai.trigger'), async (req, res, next) => {
   try {
     const payload = AIFailureTriageSchema.parse(req.body);
     const result = await failureAnalyzer.analyzeFailure(payload);
@@ -70,8 +91,8 @@ aiRouter.post('/api/v1/ai/triage-failure', async (req, res, next) => {
   }
 });
 
-// AI Auto-Healer
-aiRouter.post('/api/v1/ai/auto-heal', async (req, res, next) => {
+// AI Auto-Healer (requires ai.trigger)
+aiRouter.post('/api/v1/ai/auto-heal', requirePermission('ai.trigger'), async (req, res, next) => {
   try {
     const payload = AIAutoHealSchema.parse(req.body);
     const result = await autoHealer.healSelector(payload);

@@ -2,18 +2,24 @@ import { Router } from 'express';
 import { prisma } from '@novaqa/database';
 import { AutoHealer } from '@novaqa/ai';
 import { FindingStatus } from '@novaqa/types';
-import { NotFoundError } from '@novaqa/shared';
+import { NotFoundError, ForbiddenError } from '@novaqa/shared';
+import { authMiddleware, requirePermission } from '../middleware/auth';
 
 export const findingsRouter = Router();
 const autoHealer = new AutoHealer();
 
-// List Findings across organization/projects
-findingsRouter.get('/api/v1/findings', async (req, res, next) => {
+// Apply auth middleware to all findings endpoints
+findingsRouter.use(authMiddleware);
+
+// 1. List Findings across organization/projects (tenant-scoped, requires finding.read)
+findingsRouter.get('/api/v1/findings', requirePermission('finding.read'), async (req, res, next) => {
   try {
     const { projectId, status, category } = req.query;
+    const orgId = req.auth!.organizationId;
 
     const findings = await prisma.finding.findMany({
       where: {
+        project: { organizationId: orgId },
         projectId: projectId ? String(projectId) : undefined,
         status: status ? (status as any) : undefined,
         category: category ? (category as any) : undefined
@@ -37,11 +43,14 @@ findingsRouter.get('/api/v1/findings', async (req, res, next) => {
   }
 });
 
-// Get Finding by ID
-findingsRouter.get('/api/v1/findings/:id', async (req, res, next) => {
+// 2. Get Finding by ID (tenant-scoped, requires finding.read)
+findingsRouter.get('/api/v1/findings/:id', requirePermission('finding.read'), async (req, res, next) => {
   try {
-    const finding = await prisma.finding.findUnique({
-      where: { id: req.params.id },
+    const finding = await prisma.finding.findFirst({
+      where: {
+        id: req.params.id,
+        project: { organizationId: req.auth!.organizationId }
+      },
       include: {
         project: true,
         testRun: true,
@@ -62,27 +71,39 @@ findingsRouter.get('/api/v1/findings/:id', async (req, res, next) => {
   }
 });
 
-// Resolve Finding
-findingsRouter.post('/api/v1/findings/:id/resolve', async (req, res, next) => {
+// 3. Resolve Finding (requires finding.update)
+findingsRouter.post('/api/v1/findings/:id/resolve', requirePermission('finding.update'), async (req, res, next) => {
   try {
-    const finding = await prisma.finding.update({
+    const finding = await prisma.finding.findFirst({
+      where: {
+        id: req.params.id,
+        project: { organizationId: req.auth!.organizationId }
+      }
+    });
+
+    if (!finding) throw new NotFoundError('Finding', req.params.id);
+
+    const updated = await prisma.finding.update({
       where: { id: req.params.id },
       data: {
         status: FindingStatus.RESOLVED
       }
     });
 
-    res.json({ success: true, data: finding });
+    res.json({ success: true, data: updated });
   } catch (err) {
     next(err);
   }
 });
 
-// Trigger Auto-Healing on broken test
-findingsRouter.post('/api/v1/findings/:id/auto-heal', async (req, res, next) => {
+// 4. Trigger Auto-Healing on broken test (requires finding.update)
+findingsRouter.post('/api/v1/findings/:id/auto-heal', requirePermission('finding.update'), async (req, res, next) => {
   try {
-    const finding = await prisma.finding.findUnique({
-      where: { id: req.params.id },
+    const finding = await prisma.finding.findFirst({
+      where: {
+        id: req.params.id,
+        project: { organizationId: req.auth!.organizationId }
+      },
       include: {
         testResult: {
           include: {

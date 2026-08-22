@@ -1,16 +1,16 @@
 import express from 'express';
 import cors from 'cors';
-import { healthRouter } from './routes/health.js';
-import { authRouter } from './routes/auth.js';
-import { projectsRouter } from './routes/projects.js';
-import { suitesRouter } from './routes/suites.js';
-import { runsRouter } from './routes/runs.js';
-import { findingsRouter } from './routes/findings.js';
-import { aiRouter } from './routes/ai.js';
-import { apiKeysRouter } from './routes/api-keys.js';
-import { artifactsRouter } from './routes/artifacts.js';
-import { authMiddleware } from './middleware/auth.js';
-import { errorHandler } from './middleware/error-handler.js';
+import { healthRouter } from './routes/health';
+import { authRouter } from './routes/auth';
+import { teamRouter } from './routes/team';
+import { projectsRouter } from './routes/projects';
+import { suitesRouter } from './routes/suites';
+import { runsRouter } from './routes/runs';
+import { findingsRouter } from './routes/findings';
+import { aiRouter } from './routes/ai';
+import { apiKeysRouter } from './routes/api-keys';
+import { artifactsRouter } from './routes/artifacts';
+import { errorHandler } from './middleware/error-handler';
 import { logger } from '@novaqa/shared';
 
 export function createServer() {
@@ -30,11 +30,11 @@ export function createServer() {
   // Public Health Endpoints
   app.use(healthRouter);
 
-  // Auth Routes (Login, Register)
+  // Auth Routes (Login, Register, Refresh, Forgot Password, Reset Password, Verify Email, OAuth)
   app.use(authRouter);
 
-  // Authenticated Protected Routes
-  app.use(authMiddleware);
+  // Protected Multi-Tenant Routes (Auth Middleware applied individually inside routers)
+  app.use(teamRouter);
   app.use(projectsRouter);
   app.use(suitesRouter);
   app.use(runsRouter);

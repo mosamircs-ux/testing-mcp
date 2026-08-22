@@ -2,6 +2,8 @@ import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
 
+import { ApiKeyService } from '@novaqa/auth';
+
 const prisma = new PrismaClient();
 
 async function hashPassword(password: string) {
@@ -9,8 +11,8 @@ async function hashPassword(password: string) {
   return bcrypt.hash(password, salt);
 }
 
-function hashApiKey(rawKey: string, salt: string = 'novaqa-secret-salt-super-secure') {
-  return crypto.createHmac('sha256', salt).update(rawKey).digest('hex');
+function hashApiKey(rawKey: string) {
+  return ApiKeyService.hashApiKey(rawKey);
 }
 
 export async function main() {

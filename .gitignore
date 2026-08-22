@@ -15,3 +15,6 @@ test-results
 videos
 screenshots
 trace
+*.db
+*.db-journal
+dev.db

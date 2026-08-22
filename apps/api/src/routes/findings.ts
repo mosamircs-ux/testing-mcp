@@ -46,9 +46,10 @@ findingsRouter.get('/api/v1/findings', requirePermission('finding.read'), async 
 // 2. Get Finding by ID (tenant-scoped, requires finding.read)
 findingsRouter.get('/api/v1/findings/:id', requirePermission('finding.read'), async (req, res, next) => {
   try {
+    const id = String(req.params.id);
     const finding = await prisma.finding.findFirst({
       where: {
-        id: req.params.id,
+        id,
         project: { organizationId: req.auth!.organizationId }
       },
       include: {
@@ -63,7 +64,7 @@ findingsRouter.get('/api/v1/findings/:id', requirePermission('finding.read'), as
       }
     });
 
-    if (!finding) throw new NotFoundError('Finding', req.params.id);
+    if (!finding) throw new NotFoundError('Finding', id);
 
     res.json({ success: true, data: finding });
   } catch (err) {
@@ -74,17 +75,18 @@ findingsRouter.get('/api/v1/findings/:id', requirePermission('finding.read'), as
 // 3. Resolve Finding (requires finding.update)
 findingsRouter.post('/api/v1/findings/:id/resolve', requirePermission('finding.update'), async (req, res, next) => {
   try {
+    const id = String(req.params.id);
     const finding = await prisma.finding.findFirst({
       where: {
-        id: req.params.id,
+        id,
         project: { organizationId: req.auth!.organizationId }
       }
     });
 
-    if (!finding) throw new NotFoundError('Finding', req.params.id);
+    if (!finding) throw new NotFoundError('Finding', id);
 
     const updated = await prisma.finding.update({
-      where: { id: req.params.id },
+      where: { id },
       data: {
         status: FindingStatus.RESOLVED
       }
@@ -99,9 +101,10 @@ findingsRouter.post('/api/v1/findings/:id/resolve', requirePermission('finding.u
 // 4. Trigger Auto-Healing on broken test (requires finding.update)
 findingsRouter.post('/api/v1/findings/:id/auto-heal', requirePermission('finding.update'), async (req, res, next) => {
   try {
+    const id = String(req.params.id);
     const finding = await prisma.finding.findFirst({
       where: {
-        id: req.params.id,
+        id,
         project: { organizationId: req.auth!.organizationId }
       },
       include: {
@@ -113,10 +116,10 @@ findingsRouter.post('/api/v1/findings/:id/auto-heal', requirePermission('finding
       }
     });
 
-    if (!finding) throw new NotFoundError('Finding', req.params.id);
+    if (!finding) throw new NotFoundError('Finding', id);
 
     const testCase = finding.testResult.testCase;
-    const failedStep = testCase.steps.find((s) => s.target && s.target.includes('btn')) || testCase.steps[0];
+    const failedStep = testCase.steps.find((s: any) => s.target && s.target.includes('btn')) || testCase.steps[0];
 
     const healResult = await autoHealer.healSelector({
       testCaseId: testCase.id,

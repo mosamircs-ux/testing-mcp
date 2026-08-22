@@ -75,7 +75,7 @@ authRouter.post('/api/v1/auth/register', authRateLimit, async (req, res, next) =
         data: {
           userId: newUser.id,
           refreshTokenHash: TokenService.hashToken(rawRefreshToken),
-          userAgent: req.headers['user-agent'] || null,
+          userAgent: (req.headers['user-agent'] as string) || null,
           ipAddress: req.ip || null,
           expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) // 30 days
         }
@@ -157,7 +157,7 @@ authRouter.post('/api/v1/auth/login', authRateLimit, async (req, res, next) => {
       data: {
         userId: user.id,
         refreshTokenHash: TokenService.hashToken(rawRefreshToken),
-        userAgent: req.headers['user-agent'] || null,
+        userAgent: (req.headers['user-agent'] as string) || null,
         ipAddress: req.ip || null,
         expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
       }
@@ -288,10 +288,11 @@ authRouter.post('/api/v1/auth/forgot-password', authRateLimit, async (req, res, 
 
     // Always respond with success to prevent user enumeration attacks
     if (!user) {
-      return res.json({
+      res.json({
         success: true,
         message: 'If an account exists with this email, a password reset link has been dispatched.'
       });
+      return;
     }
 
     const resetTokenInfo = TokenService.generateTimedToken();
@@ -405,7 +406,7 @@ authRouter.get('/api/v1/auth/me', authMiddleware, async (req, res, next) => {
       }
     });
 
-    if (!user) throw new NotFoundError('User not found');
+    if (!user) throw new NotFoundError('User');
 
     res.json({
       success: true,
@@ -464,13 +465,13 @@ authRouter.get('/api/v1/auth/sessions', authMiddleware, async (req, res, next) =
 // 10. Terminate a Specific Session
 authRouter.delete('/api/v1/auth/sessions/:id', authMiddleware, async (req, res, next) => {
   try {
-    const { id } = req.params;
+    const id = String(req.params.id);
     const session = await prisma.session.findFirst({
       where: { id, userId: req.auth!.userId }
     });
 
     if (!session) {
-      throw new NotFoundError('Session not found');
+      throw new NotFoundError('Session', id);
     }
 
     await prisma.session.update({
@@ -489,7 +490,6 @@ authRouter.delete('/api/v1/auth/sessions/:id', authMiddleware, async (req, res, 
 
 // 11. OAuth Google Ready Initiation & Callback
 authRouter.get('/api/v1/auth/oauth/google', (req, res) => {
-  // OAuth URL constructor for Google Identity
   const clientId = process.env.GOOGLE_CLIENT_ID || 'mock-google-client-id';
   const redirectUri = `${process.env.API_URL || 'http://localhost:4000'}/api/v1/auth/oauth/google/callback`;
   const scope = encodeURIComponent('openid profile email');
@@ -505,7 +505,7 @@ authRouter.get('/api/v1/auth/oauth/google', (req, res) => {
 
 authRouter.post('/api/v1/auth/oauth/google/callback', async (req, res, next) => {
   try {
-    const { credential, email, name, avatarUrl } = req.body;
+    const { email, name, avatarUrl } = req.body;
     if (!email) {
       throw new BadRequestError('OAuth email required');
     }
@@ -564,7 +564,7 @@ authRouter.post('/api/v1/auth/oauth/google/callback', async (req, res, next) => 
       data: {
         userId: user!.id,
         refreshTokenHash: TokenService.hashToken(rawRefreshToken),
-        userAgent: req.headers['user-agent'] || null,
+        userAgent: (req.headers['user-agent'] as string) || null,
         ipAddress: req.ip || null,
         expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
       }

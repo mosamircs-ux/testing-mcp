@@ -7,9 +7,37 @@ import { z } from 'zod';
 export enum Role {
   OWNER = 'OWNER',
   ADMIN = 'ADMIN',
-  ENGINEER = 'ENGINEER',
-  VIEWER = 'VIEWER'
+  QA_ENGINEER = 'QA_ENGINEER',
+  DEVELOPER = 'DEVELOPER',
+  VIEWER = 'VIEWER',
+  BILLING_MANAGER = 'BILLING_MANAGER'
 }
+
+export type Permission =
+  | 'org.read'
+  | 'org.update'
+  | 'org.delete'
+  | 'team.manage'
+  | 'project.read'
+  | 'project.create'
+  | 'project.update'
+  | 'project.delete'
+  | 'test.read'
+  | 'test.create'
+  | 'test.execute'
+  | 'test.delete'
+  | 'run.read'
+  | 'run.execute'
+  | 'run.cancel'
+  | 'finding.read'
+  | 'finding.update'
+  | 'billing.read'
+  | 'billing.manage'
+  | 'api_key.read'
+  | 'api_key.create'
+  | 'api_key.delete'
+  | 'mcp.connect'
+  | 'ai.trigger';
 
 export enum ProjectCategory {
   WEB = 'WEB',
@@ -106,8 +134,29 @@ export interface User {
   email: string;
   name: string;
   avatarUrl?: string | null;
+  isEmailVerified: boolean;
+  oauthProvider?: string | null;
+  oauthId?: string | null;
   createdAt: Date;
   updatedAt: Date;
+}
+
+export interface Session {
+  id: string;
+  userId: string;
+  refreshTokenHash: string;
+  userAgent?: string | null;
+  ipAddress?: string | null;
+  expiresAt: Date;
+  isRevoked: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface AuthTokens {
+  accessToken: string;
+  refreshToken: string;
+  expiresIn: string;
 }
 
 export interface Organization {
@@ -125,6 +174,8 @@ export interface OrganizationMember {
   userId: string;
   role: Role;
   createdAt: Date;
+  user?: User;
+  organization?: Organization;
 }
 
 export interface Team {
@@ -133,6 +184,16 @@ export interface Team {
   name: string;
   slug: string;
   createdAt: Date;
+  members?: TeamMember[];
+}
+
+export interface TeamMember {
+  id: string;
+  teamId: string;
+  userId: string;
+  role: string;
+  createdAt: Date;
+  user?: User;
 }
 
 export interface Project {
@@ -282,19 +343,22 @@ export interface Artifact {
 export interface ApiKey {
   id: string;
   organizationId: string;
+  projectId?: string | null;
   userId: string;
   name: string;
   keyPrefix: string;
   hashedKey: string;
+  scope: string;
   lastUsedAt?: Date | null;
   expiresAt?: Date | null;
+  revokedAt?: Date | null;
   createdAt: Date;
 }
 
 export interface McpSession {
   id: string;
   apiKeyId: string;
-  clientName: string; // 'Cursor' | 'Antigravity' | 'Claude' | 'Codex'
+  clientName: string;
   clientVersion?: string | null;
   lastActiveAt: Date;
   ipAddress?: string | null;
@@ -317,6 +381,52 @@ export interface AuditLog {
 // Zod Schemas for Validation
 // ============================================================================
 
+export const RegisterSchema = z.object({
+  name: z.string().min(2).max(100),
+  email: z.string().email(),
+  password: z.string().min(8, 'Password must be at least 8 characters long'),
+  organizationName: z.string().min(2).max(100).optional()
+});
+
+export const LoginSchema = z.object({
+  email: z.string().email(),
+  password: z.string().min(1)
+});
+
+export const RefreshTokenSchema = z.object({
+  refreshToken: z.string().min(1)
+});
+
+export const ForgotPasswordSchema = z.object({
+  email: z.string().email()
+});
+
+export const ResetPasswordSchema = z.object({
+  token: z.string().min(1),
+  newPassword: z.string().min(8, 'Password must be at least 8 characters long')
+});
+
+export const VerifyEmailSchema = z.object({
+  token: z.string().min(1)
+});
+
+export const InviteMemberSchema = z.object({
+  email: z.string().email(),
+  role: z.nativeEnum(Role).default(Role.QA_ENGINEER),
+  teamId: z.string().optional()
+});
+
+export const UpdateMemberRoleSchema = z.object({
+  role: z.nativeEnum(Role)
+});
+
+export const CreateApiKeySchema = z.object({
+  name: z.string().min(2).max(64),
+  projectId: z.string().optional(),
+  scope: z.string().default('ALL'),
+  expiresInDays: z.number().int().positive().optional()
+});
+
 export const CreateProjectSchema = z.object({
   organizationId: z.string().min(1),
   teamId: z.string().optional(),
@@ -324,9 +434,9 @@ export const CreateProjectSchema = z.object({
   description: z.string().max(500).optional(),
   category: z.nativeEnum(ProjectCategory),
   engineType: z.nativeEnum(EngineType).default(EngineType.PLAYWRIGHT),
-  repositoryUrl: z.string().url().optional(),
-  baseUrl: z.string().url().optional(),
-  specUrl: z.string().url().optional(),
+  repositoryUrl: z.string().url().optional().or(z.literal('')),
+  baseUrl: z.string().url().optional().or(z.literal('')),
+  specUrl: z.string().url().optional().or(z.literal('')),
   settings: z.record(z.unknown()).default({})
 });
 
@@ -422,6 +532,16 @@ export interface McpToolResult<T = unknown> {
   error?: string;
   meta?: Record<string, unknown>;
 }
+
+export type RegisterInput = z.infer<typeof RegisterSchema>;
+export type LoginInput = z.infer<typeof LoginSchema>;
+export type RefreshTokenInput = z.infer<typeof RefreshTokenSchema>;
+export type ForgotPasswordInput = z.infer<typeof ForgotPasswordSchema>;
+export type ResetPasswordInput = z.infer<typeof ResetPasswordSchema>;
+export type VerifyEmailInput = z.infer<typeof VerifyEmailSchema>;
+export type InviteMemberInput = z.infer<typeof InviteMemberSchema>;
+export type UpdateMemberRoleInput = z.infer<typeof UpdateMemberRoleSchema>;
+export type CreateApiKeyInput = z.infer<typeof CreateApiKeySchema>;
 
 export type CreateProjectInput = z.infer<typeof CreateProjectSchema>;
 export type CreateEnvironmentInput = z.infer<typeof CreateEnvironmentSchema>;

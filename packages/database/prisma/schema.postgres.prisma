@@ -10,14 +10,10 @@ generator client {
 enum Role {
   OWNER
   ADMIN
-  ENGINEER
+  QA_ENGINEER
+  DEVELOPER
   VIEWER
-}
-
-enum SubscriptionTier {
-  FREE
-  PRO
-  ENTERPRISE
+  BILLING_MANAGER
 }
 
 enum ProjectCategory {
@@ -101,25 +97,46 @@ enum ArtifactType {
 }
 
 model User {
-  id           String               @id @default(cuid())
-  email        String               @unique
-  name         String
-  passwordHash String
-  avatarUrl    String?
-  memberships  OrganizationMember[]
-  teamMembers  TeamMember[]
-  apiKeys      ApiKey[]
-  testRuns     TestRun[]
-  auditLogs    AuditLog[]
-  createdAt    DateTime             @default(now())
-  updatedAt    DateTime             @updatedAt
+  id                       String               @id @default(cuid())
+  email                    String               @unique
+  name                     String
+  passwordHash             String
+  avatarUrl                String?
+  isEmailVerified          Boolean              @default(false)
+  emailVerificationToken   String?
+  emailVerificationExpires DateTime?
+  resetPasswordToken       String?
+  resetPasswordExpires     DateTime?
+  oauthProvider            String?
+  oauthId                  String?
+  sessions                 Session[]
+  memberships              OrganizationMember[]
+  teamMembers              TeamMember[]
+  apiKeys                  ApiKey[]
+  testRuns                 TestRun[]
+  auditLogs                AuditLog[]
+  createdAt                DateTime             @default(now())
+  updatedAt                DateTime             @updatedAt
+}
+
+model Session {
+  id               String   @id @default(cuid())
+  userId           String
+  refreshTokenHash String   @unique
+  userAgent        String?
+  ipAddress        String?
+  expiresAt        DateTime
+  isRevoked        Boolean  @default(false)
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 }
 
 model Organization {
   id           String               @id @default(cuid())
   name         String
   slug         String               @unique
-  tier         SubscriptionTier     @default(FREE)
+  tier         String               @default("FREE")
   members      OrganizationMember[]
   teams        Team[]
   projects     Project[]
@@ -135,7 +152,7 @@ model OrganizationMember {
   id             String       @id @default(cuid())
   organizationId String
   userId         String
-  role           Role         @default(ENGINEER)
+  role           Role         @default(QA_ENGINEER)
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
   createdAt      DateTime     @default(now())
@@ -160,6 +177,7 @@ model TeamMember {
   id        String   @id @default(cuid())
   teamId    String
   userId    String
+  role      String   @default("MEMBER")
   team      Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   createdAt DateTime @default(now())
@@ -186,6 +204,7 @@ model Project {
   testSuites     TestSuite[]
   testRuns       TestRun[]
   findings       Finding[]
+  apiKeys        ApiKey[]
   createdAt      DateTime        @default(now())
   updatedAt      DateTime        @updatedAt
 
@@ -324,7 +343,7 @@ model Artifact {
   id           String       @id @default(cuid())
   testRunId    String
   testResultId String?
-  type         ArtifactType
+  type         ArtifactType @default(SCREENSHOT)
   fileName     String
   fileSize     Int
   mimeType     String
@@ -339,13 +358,17 @@ model Artifact {
 model ApiKey {
   id             String        @id @default(cuid())
   organizationId String
+  projectId      String?
   userId         String
   name           String
   keyPrefix      String
   hashedKey      String        @unique
+  scope          String        @default("ALL")
   lastUsedAt     DateTime?
   expiresAt      DateTime?
+  revokedAt      DateTime?
   organization   Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  project        Project?      @relation(fields: [projectId], references: [id], onDelete: SetNull)
   user           User          @relation(fields: [userId], references: [id], onDelete: Cascade)
   mcpSessions    McpSession[]
   createdAt      DateTime      @default(now())
@@ -375,14 +398,14 @@ model UsageMetric {
 }
 
 model Subscription {
-  id             String           @id @default(cuid())
-  organizationId String           @unique
-  tier           SubscriptionTier @default(FREE)
-  status         String           @default("active")
+  id               String       @id @default(cuid())
+  organizationId   String       @unique
+  tier             String       @default("FREE")
+  status           String       @default("active")
   currentPeriodEnd DateTime?
-  organization   Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  createdAt      DateTime         @default(now())
-  updatedAt      DateTime         @updatedAt
+  organization     Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
 }
 
 model AuditLog {

@@ -104,6 +104,13 @@ enum DiscoveryStatus {
   FAILED
 }
 
+enum TestPlanStatus {
+  DRAFT
+  REVIEW
+  APPROVED
+  ARCHIVED
+}
+
 model User {
   id                       String               @id @default(cuid())
   email                    String               @unique
@@ -219,6 +226,8 @@ model Project {
   findings           Finding[]
   apiKeys            ApiKey[]
   discoveries        ProjectDiscovery[]
+  testPlans          TestPlan[]
+  plannedTestCases   PlannedTestCase[]
   createdAt          DateTime           @default(now())
   updatedAt          DateTime           @updatedAt
 
@@ -252,6 +261,58 @@ model ProjectDiscovery {
   updatedAt      DateTime        @updatedAt
 
   @@index([projectId, createdAt])
+}
+
+model TestPlan {
+  id               String            @id @default(cuid())
+  projectId        String
+  title            String
+  description      String?
+  version          String            @default("1.0.0")
+  status           TestPlanStatus    @default(DRAFT)
+  summary          String            @default("")
+  coverageMetrics  Json              @default("{}")
+  userInstructions String?
+  project          Project           @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  testCases        PlannedTestCase[]
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+
+  @@index([projectId, createdAt])
+}
+
+model PlannedTestCase {
+  id                   String   @id @default(cuid())
+  customId             String
+  testPlanId           String
+  projectId            String
+  title                String
+  description          String
+  priority             String   @default("HIGH")
+  category             String   @default("Functional")
+  scenarioType         String   @default("HAPPY_PATH")
+  preconditions        Json     @default("[]")
+  testData             Json     @default("{}")
+  steps                Json     @default("[]")
+  expectedResults      String
+  risk                 String   @default("")
+  requirementReference String   @default("")
+  affectedRoutes       Json     @default("[]")
+  affectedApis         Json     @default("[]")
+  roles                Json     @default("[]")
+  environment          String   @default("STAGING")
+  automationStatus     String   @default("READY_FOR_AUTOMATION")
+  reviewStatus         String   @default("PENDING")
+  tags                 Json     @default("[]")
+  groupName            String   @default("General")
+  semanticHash         String?
+  testPlan             TestPlan @relation(fields: [testPlanId], references: [id], onDelete: Cascade)
+  project              Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  @@index([testPlanId, customId])
+  @@index([projectId, category])
 }
 
 model Environment {

@@ -122,6 +122,8 @@ model Project {
   findings           Finding[]
   apiKeys            ApiKey[]
   discoveries        ProjectDiscovery[]
+  testPlans          TestPlan[]
+  plannedTestCases   PlannedTestCase[]
   createdAt          DateTime           @default(now())
   updatedAt          DateTime           @updatedAt
 
@@ -155,6 +157,58 @@ model ProjectDiscovery {
   updatedAt      DateTime  @updatedAt
 
   @@index([projectId, createdAt])
+}
+
+model TestPlan {
+  id               String            @id @default(cuid())
+  projectId        String
+  title            String
+  description      String?
+  version          String            @default("1.0.0")
+  status           String            @default("DRAFT") // DRAFT, REVIEW, APPROVED, ARCHIVED
+  summary          String            @default("")
+  coverageMetrics  String            @default("{}") // JSON: requirementCoverage, routeCoverage, etc.
+  userInstructions String?
+  project          Project           @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  testCases        PlannedTestCase[]
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+
+  @@index([projectId, createdAt])
+}
+
+model PlannedTestCase {
+  id                   String   @id @default(cuid())
+  customId             String   // e.g. "TC001", "TC002"
+  testPlanId           String
+  projectId            String
+  title                String
+  description          String
+  priority             String   @default("HIGH") // CRITICAL, HIGH, MEDIUM, LOW
+  category             String   @default("Functional")
+  scenarioType         String   @default("HAPPY_PATH") // HAPPY_PATH, NEGATIVE_PATH, EDGE_CASE
+  preconditions        String   @default("[]") // JSON string array
+  testData             String   @default("{}") // JSON object
+  steps                String   @default("[]") // JSON array of step objects
+  expectedResults      String
+  risk                 String   @default("")
+  requirementReference String   @default("") // Traceability link
+  affectedRoutes       String   @default("[]") // JSON string array
+  affectedApis         String   @default("[]") // JSON string array
+  roles                String   @default("[]") // JSON string array
+  environment          String   @default("STAGING")
+  automationStatus     String   @default("READY_FOR_AUTOMATION") // DRAFT, READY_FOR_AUTOMATION, AUTOMATED, MANUAL_ONLY
+  reviewStatus         String   @default("PENDING") // PENDING, APPROVED, REJECTED
+  tags                 String   @default("[]") // JSON string array
+  groupName            String   @default("General")
+  semanticHash         String?
+  testPlan             TestPlan @relation(fields: [testPlanId], references: [id], onDelete: Cascade)
+  project              Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  @@index([testPlanId, customId])
+  @@index([projectId, category])
 }
 
 model Environment {

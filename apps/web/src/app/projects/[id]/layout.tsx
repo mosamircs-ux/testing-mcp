@@ -11,13 +11,14 @@ import {
   Sparkles,
   Shield,
   Sliders,
-  History,
+  FileCheck2,
   Activity,
   ArrowLeft
 } from 'lucide-react';
 
 const TABS = [
   { href: 'overview', label: 'Overview', icon: Layers },
+  { href: 'planning', label: 'AI Test Plan', icon: FileCheck2, badge: 'AI Engine' },
   { href: 'discovery', label: 'Live Discovery', icon: Sparkles, badge: 'Real-Time' },
   { href: 'map', label: 'Application Map', icon: Map },
   { href: 'routes', label: 'Routes Map', icon: Navigation },

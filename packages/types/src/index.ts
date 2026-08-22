@@ -134,6 +134,58 @@ export enum DiscoveryStatus {
 }
 
 // ============================================================================
+// 19 Specialized Test Categories & Planning Types
+// ============================================================================
+
+export enum TestCategory {
+  FUNCTIONAL = 'Functional',
+  UI = 'UI',
+  E2E = 'E2E',
+  API = 'API',
+  INTEGRATION = 'Integration',
+  REGRESSION = 'Regression',
+  SMOKE = 'Smoke',
+  SANITY = 'Sanity',
+  ACCESSIBILITY = 'Accessibility',
+  RESPONSIVE = 'Responsive',
+  AUTHENTICATION = 'Authentication',
+  AUTHORIZATION = 'Authorization',
+  NEGATIVE = 'Negative',
+  EDGE_CASES = 'Edge Cases',
+  VALIDATION = 'Validation',
+  BUSINESS_LOGIC = 'Business Logic',
+  DATA_INTEGRITY = 'Data Integrity',
+  PERFORMANCE_BOUNDARIES = 'Performance boundaries',
+  SECURITY_CHECKS = 'Security-oriented functional checks'
+}
+
+export enum ScenarioType {
+  HAPPY_PATH = 'HAPPY_PATH',
+  NEGATIVE_PATH = 'NEGATIVE_PATH',
+  EDGE_CASE = 'EDGE_CASE'
+}
+
+export enum ReviewStatus {
+  PENDING = 'PENDING',
+  APPROVED = 'APPROVED',
+  REJECTED = 'REJECTED'
+}
+
+export enum AutomationStatus {
+  DRAFT = 'DRAFT',
+  READY_FOR_AUTOMATION = 'READY_FOR_AUTOMATION',
+  AUTOMATED = 'AUTOMATED',
+  MANUAL_ONLY = 'MANUAL_ONLY'
+}
+
+export enum TestPlanStatus {
+  DRAFT = 'DRAFT',
+  REVIEW = 'REVIEW',
+  APPROVED = 'APPROVED',
+  ARCHIVED = 'ARCHIVED'
+}
+
+// ============================================================================
 // Core Domain Types
 // ============================================================================
 
@@ -550,6 +602,74 @@ export interface DiscoveryProgressEvent {
 }
 
 // ============================================================================
+// AI Test Planning Domain Models & Coverage Metrics
+// ============================================================================
+
+export interface CoverageMetrics {
+  requirementCoverage: number; // 0 - 100%
+  routeCoverage: number;       // 0 - 100%
+  apiCoverage: number;         // 0 - 100%
+  featureCoverage: number;     // 0 - 100%
+  roleCoverage: number;        // 0 - 100%
+  negativePathCoverage: number;// 0 - 100%
+  totalScenarios: number;
+  happyPathCount: number;
+  negativePathCount: number;
+  edgeCaseCount: number;
+}
+
+export interface PlannedTestCase {
+  id: string;
+  customId: string; // e.g. "TC001", "TC002"
+  testPlanId: string;
+  projectId: string;
+  title: string;
+  description: string;
+  priority: 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW';
+  category: TestCategory | string;
+  scenarioType: ScenarioType;
+  preconditions: string[];
+  testData: Record<string, unknown>;
+  steps: Array<{
+    order: number;
+    action: string;
+    target: string;
+    value?: string;
+    description: string;
+    expectedOutput?: string;
+  }>;
+  expectedResults: string;
+  risk: string;
+  requirementReference: string; // Traceability back to PRD / Discovered Feature
+  affectedRoutes: string[];
+  affectedApis: string[];
+  roles: string[];
+  environment: string;
+  automationStatus: AutomationStatus;
+  reviewStatus: ReviewStatus;
+  tags: string[];
+  groupName: string;
+  semanticHash?: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface TestPlan {
+  id: string;
+  projectId: string;
+  title: string;
+  description?: string | null;
+  version: string;
+  status: TestPlanStatus;
+  summary: string;
+  coverageMetrics: CoverageMetrics;
+  userInstructions?: string | null;
+  testCases?: PlannedTestCase[];
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+// ============================================================================
 // Zod Schemas for Validation
 // ============================================================================
 
@@ -600,23 +720,12 @@ export const CreateApiKeySchema = z.object({
 });
 
 export const ProjectOnboardingSchema = z.object({
-  // STEP 1: Project Name
   name: z.string().min(2, 'Project name is required').max(100),
   description: z.string().max(500).optional(),
-
-  // STEP 2: Project Type
   category: z.nativeEnum(ProjectCategory).default(ProjectCategory.WEB),
-
-  // STEP 3: Environment
   environment: z.enum(['LOCAL', 'DEVELOPMENT', 'STAGING', 'PRODUCTION']).default('STAGING'),
-
-  // STEP 4: Application URL
   appUrl: z.string().url('Must be a valid URL').optional().or(z.literal('')),
-
-  // STEP 5: API Base URL
   apiBaseUrl: z.string().url('Must be a valid URL').optional().or(z.literal('')),
-
-  // STEP 6: Authentication Configuration
   authConfig: z
     .object({
       type: z.enum(['NONE', 'BEARER', 'BASIC', 'COOKIE', 'CUSTOM_HEADER', 'LOGIN_FLOW']).default('NONE'),
@@ -628,11 +737,7 @@ export const ProjectOnboardingSchema = z.object({
       customHeaderValue: z.string().optional()
     })
     .default({ type: 'NONE' }),
-
-  // STEP 7: Optional PRD Upload / Text
   prdContent: z.string().optional(),
-
-  // STEP 8: Optional Repository Connection
   repoConfig: z
     .object({
       repositoryUrl: z.string().optional(),
@@ -640,8 +745,6 @@ export const ProjectOnboardingSchema = z.object({
       localPath: z.string().optional()
     })
     .default({ branch: 'main' }),
-
-  // STEP 9: Testing Preferences
   testingPreferences: z
     .object({
       engineType: z.nativeEnum(EngineType).default(EngineType.PLAYWRIGHT),
@@ -663,8 +766,56 @@ export const ProjectOnboardingSchema = z.object({
       captureScreenshots: true,
       timeoutMs: 30000
     }),
-
   triggerDiscovery: z.boolean().default(true)
+});
+
+export const GenerateTestPlanSchema = z.object({
+  projectId: z.string().min(1),
+  title: z.string().min(2).max(100).optional(),
+  userInstructions: z.string().max(2000).optional(),
+  categories: z.array(z.string()).optional(),
+  focusAreas: z.array(z.string()).optional(),
+  includeNegativeScenarios: z.boolean().default(true),
+  includeEdgeCases: z.boolean().default(true)
+});
+
+export const BulkTestCaseActionSchema = z.object({
+  testCaseIds: z.array(z.string()).min(1),
+  action: z.enum(['APPROVE', 'REJECT', 'PRIORITIZE', 'TAG', 'GROUP', 'DUPLICATE', 'MERGE', 'DELETE']),
+  priority: z.enum(['CRITICAL', 'HIGH', 'MEDIUM', 'LOW']).optional(),
+  tags: z.array(z.string()).optional(),
+  groupName: z.string().optional()
+});
+
+export const UpdatePlannedTestCaseSchema = z.object({
+  title: z.string().min(3).max(200).optional(),
+  description: z.string().optional(),
+  priority: z.enum(['CRITICAL', 'HIGH', 'MEDIUM', 'LOW']).optional(),
+  category: z.string().optional(),
+  scenarioType: z.enum(['HAPPY_PATH', 'NEGATIVE_PATH', 'EDGE_CASE']).optional(),
+  preconditions: z.array(z.string()).optional(),
+  testData: z.record(z.unknown()).optional(),
+  steps: z.array(
+    z.object({
+      order: z.number(),
+      action: z.string(),
+      target: z.string(),
+      value: z.string().optional(),
+      description: z.string(),
+      expectedOutput: z.string().optional()
+    })
+  ).optional(),
+  expectedResults: z.string().optional(),
+  risk: z.string().optional(),
+  requirementReference: z.string().optional(),
+  affectedRoutes: z.array(z.string()).optional(),
+  affectedApis: z.array(z.string()).optional(),
+  roles: z.array(z.string()).optional(),
+  environment: z.string().optional(),
+  automationStatus: z.enum(['DRAFT', 'READY_FOR_AUTOMATION', 'AUTOMATED', 'MANUAL_ONLY']).optional(),
+  reviewStatus: z.enum(['PENDING', 'APPROVED', 'REJECTED']).optional(),
+  tags: z.array(z.string()).optional(),
+  groupName: z.string().optional()
 });
 
 export const CreateProjectSchema = z.object({
@@ -789,6 +940,10 @@ export type UpdateMemberRoleInput = z.infer<typeof UpdateMemberRoleSchema>;
 export type CreateApiKeyInput = z.infer<typeof CreateApiKeySchema>;
 
 export type ProjectOnboardingInput = z.infer<typeof ProjectOnboardingSchema>;
+export type GenerateTestPlanInput = z.infer<typeof GenerateTestPlanSchema>;
+export type BulkTestCaseActionInput = z.infer<typeof BulkTestCaseActionSchema>;
+export type UpdatePlannedTestCaseInput = z.infer<typeof UpdatePlannedTestCaseSchema>;
+
 export type CreateProjectInput = z.infer<typeof CreateProjectSchema>;
 export type CreateEnvironmentInput = z.infer<typeof CreateEnvironmentSchema>;
 export type CreateTestSuiteInput = z.infer<typeof CreateTestSuiteSchema>;

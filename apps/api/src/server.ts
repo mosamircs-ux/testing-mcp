@@ -4,6 +4,7 @@ import { healthRouter } from './routes/health';
 import { authRouter } from './routes/auth';
 import { teamRouter } from './routes/team';
 import { projectsRouter } from './routes/projects';
+import { planningRouter } from './routes/planning';
 import { suitesRouter } from './routes/suites';
 import { runsRouter } from './routes/runs';
 import { findingsRouter } from './routes/findings';
@@ -36,6 +37,7 @@ export function createServer() {
   // Protected Multi-Tenant Routes (Auth Middleware applied individually inside routers)
   app.use(teamRouter);
   app.use(projectsRouter);
+  app.use(planningRouter);
   app.use(suitesRouter);
   app.use(runsRouter);
   app.use(findingsRouter);

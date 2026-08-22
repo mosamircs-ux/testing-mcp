@@ -1,0 +1,29 @@
+{
+  "name": "@novaqa/mcp",
+  "version": "1.0.0",
+  "private": true,
+  "main": "./src/index.ts",
+  "bin": {
+    "novaqa-mcp": "./src/index.ts"
+  },
+  "scripts": {
+    "dev": "tsx src/index.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.4.1",
+    "@novaqa/ai": "*",
+    "@novaqa/auth": "*",
+    "@novaqa/database": "*",
+    "@novaqa/reporting": "*",
+    "@novaqa/shared": "*",
+    "@novaqa/test-runner": "*",
+    "@novaqa/types": "*",
+    "@novaqa/worker": "*",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "typescript": "^5.7.2"
+  }
+}

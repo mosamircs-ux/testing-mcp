@@ -1,0 +1,40 @@
+{
+  "name": "novaqa-monorepo",
+  "version": "1.0.0",
+  "private": true,
+  "description": "NovaQA - Production-grade Autonomous AI Software Testing Platform",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "build": "npm run --workspaces --if-present build",
+    "dev": "npm run dev --workspace=@novaqa/api",
+    "dev:all": "npm run --workspaces --parallel dev",
+    "dev:web": "npm run dev --workspace=@novaqa/web",
+    "dev:api": "npm run dev --workspace=@novaqa/api",
+    "dev:mcp": "npm run dev --workspace=@novaqa/mcp",
+    "dev:worker": "npm run dev --workspace=@novaqa/worker",
+    "dev:runner": "npm run dev --workspace=@novaqa/test-runner",
+    "typecheck": "npm run --workspaces --if-present typecheck",
+    "lint": "npm run --workspaces --if-present lint",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "db:generate": "npm run generate --workspace=@novaqa/database",
+    "db:push": "npm run push --workspace=@novaqa/database",
+    "db:migrate": "npm run migrate --workspace=@novaqa/database",
+    "db:seed": "npm run seed --workspace=@novaqa/database",
+    "docker:up": "docker compose up -d",
+    "docker:down": "docker compose down"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "dotenv": "^16.4.7",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}

@@ -1,0 +1,17 @@
+node_modules
+.next
+dist
+build
+.turbo
+*.tsbuildinfo
+coverage
+.env
+.env.local
+.env.*.local
+*.log
+artifacts/
+.playwright
+test-results
+videos
+screenshots
+trace

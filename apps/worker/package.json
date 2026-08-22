@@ -1,0 +1,21 @@
+{
+  "name": "@novaqa/worker",
+  "version": "1.0.0",
+  "private": true,
+  "main": "./src/index.ts",
+  "scripts": {
+    "dev": "tsx src/index.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@novaqa/ai": "*",
+    "@novaqa/database": "*",
+    "@novaqa/shared": "*",
+    "@novaqa/test-runner": "*",
+    "@novaqa/types": "*"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "typescript": "^5.7.2"
+  }
+}

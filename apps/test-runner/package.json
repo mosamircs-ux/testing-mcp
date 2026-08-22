@@ -1,0 +1,23 @@
+{
+  "name": "@novaqa/test-runner",
+  "version": "1.0.0",
+  "private": true,
+  "main": "./src/index.ts",
+  "scripts": {
+    "dev": "tsx src/index.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@novaqa/api-testing": "*",
+    "@novaqa/browser": "*",
+    "@novaqa/database": "*",
+    "@novaqa/mobile-testing": "*",
+    "@novaqa/shared": "*",
+    "@novaqa/testing": "*",
+    "@novaqa/types": "*"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "typescript": "^5.7.2"
+  }
+}

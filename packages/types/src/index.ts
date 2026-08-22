@@ -56,7 +56,8 @@ export enum ProjectCategory {
   MOBILE_REACT_NATIVE = 'MOBILE_REACT_NATIVE',
   MOBILE_FLUTTER = 'MOBILE_FLUTTER',
   MICROSERVICE = 'MICROSERVICE',
-  FULLSTACK = 'FULLSTACK'
+  FULLSTACK = 'FULLSTACK',
+  OTHER = 'OTHER'
 }
 
 export enum EngineType {
@@ -123,6 +124,13 @@ export enum SubscriptionTier {
   FREE = 'FREE',
   PRO = 'PRO',
   ENTERPRISE = 'ENTERPRISE'
+}
+
+export enum DiscoveryStatus {
+  PENDING = 'PENDING',
+  IN_PROGRESS = 'IN_PROGRESS',
+  COMPLETED = 'COMPLETED',
+  FAILED = 'FAILED'
 }
 
 // ============================================================================
@@ -208,6 +216,11 @@ export interface Project {
   repositoryUrl?: string | null;
   baseUrl?: string | null;
   specUrl?: string | null;
+  appUrl?: string | null;
+  authConfig?: string | null;
+  repoConfig?: string | null;
+  testingPreferences?: string | null;
+  prdContent?: string | null;
   settings: Record<string, unknown>;
   createdAt: Date;
   updatedAt: Date;
@@ -378,6 +391,165 @@ export interface AuditLog {
 }
 
 // ============================================================================
+// Discovery Domain Types & Specification Models
+// ============================================================================
+
+export interface TechStackInfo {
+  language: string;
+  framework: string;
+  runtime: string;
+  packageManager?: string;
+  database?: string;
+  orm?: string;
+  styling?: string;
+  testingLibraries?: string[];
+  keyDependencies?: string[];
+}
+
+export interface ApplicationMap {
+  overview: string;
+  architectureType: 'MONOLITH' | 'MICROSERVICE' | 'SPA_REST' | 'SSR_FULLSTACK' | 'MOBILE_APP';
+  modules: Array<{
+    name: string;
+    type: string;
+    description: string;
+    filePaths?: string[];
+    criticality: 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW';
+  }>;
+}
+
+export interface RouteItem {
+  path: string;
+  name: string;
+  type: 'PAGE' | 'MODAL' | 'DRAWER' | 'REDIRECT';
+  authRequired: boolean;
+  requiredRole?: string;
+  parameters?: string[];
+  discoveredForms?: Array<{ name: string; fields: string[]; submitAction: string }>;
+  interactiveElements?: Array<{ type: 'BUTTON' | 'INPUT' | 'LINK' | 'SELECT'; selector: string; description: string }>;
+}
+
+export interface ApiEndpointItem {
+  path: string;
+  method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
+  summary: string;
+  description?: string;
+  authRequired: boolean;
+  parameters?: Array<{ name: string; in: 'query' | 'header' | 'path' | 'body'; required: boolean; type: string }>;
+  requestBodySchema?: Record<string, unknown>;
+  responseStatusCodes?: number[];
+}
+
+export interface FeatureModuleItem {
+  id: string;
+  name: string;
+  domain: string;
+  priority: 'P0_CRITICAL' | 'P1_HIGH' | 'P2_MEDIUM' | 'P3_LOW';
+  description: string;
+  identifiedWorkflows: string[];
+  recommendedScenariosCount: number;
+}
+
+export interface AuthMechanismMap {
+  authType: 'NONE' | 'BEARER_JWT' | 'SESSION_COOKIE' | 'BASIC_AUTH' | 'API_KEY' | 'OAUTH2';
+  loginEndpoint?: string;
+  registerEndpoint?: string;
+  tokenFormat?: string;
+  headerName?: string;
+  cookieName?: string;
+  sessionExpiryDuration?: string;
+}
+
+export interface RolePermissionMap {
+  roles: Array<{
+    role: string;
+    description: string;
+    accessibleRoutes: string[];
+    accessibleEndpoints: string[];
+  }>;
+}
+
+export interface WorkflowJourneyItem {
+  id: string;
+  name: string;
+  category: 'AUTHENTICATION' | 'CHECKOUT' | 'CRUD' | 'ONBOARDING' | 'SEARCH' | 'SETTINGS';
+  description: string;
+  estimatedSteps: number;
+  steps: Array<{
+    stepNumber: number;
+    action: string;
+    targetRouteOrEndpoint: string;
+    expectedState: string;
+  }>;
+}
+
+export interface RiskAreaItem {
+  area: string;
+  category: 'SECURITY' | 'DATA_INTEGRITY' | 'EDGE_CASE' | 'PERFORMANCE' | 'FLAKY_LOCATOR';
+  severity: FindingSeverity;
+  description: string;
+  recommendation: string;
+}
+
+export interface NormalizedProjectSpec {
+  projectName: string;
+  category: string;
+  version: string;
+  generatedAt: string;
+  summary: string;
+  techStack: TechStackInfo;
+  applicationMap: ApplicationMap;
+  routes: RouteItem[];
+  apis: ApiEndpointItem[];
+  features: FeatureModuleItem[];
+  authentication: AuthMechanismMap;
+  roles: RolePermissionMap;
+  workflows: WorkflowJourneyItem[];
+  riskAreas: RiskAreaItem[];
+  recommendedSuites: Array<{
+    name: string;
+    description: string;
+    tags: string[];
+    estimatedTestCases: number;
+  }>;
+}
+
+export interface ProjectDiscovery {
+  id: string;
+  projectId: string;
+  status: DiscoveryStatus;
+  progress: number;
+  currentStep: string;
+  logs: Array<{ timestamp: string; phase: string; message: string }>;
+  techStack: TechStackInfo;
+  applicationMap: ApplicationMap;
+  routesMap: RouteItem[];
+  apiMap: ApiEndpointItem[];
+  featureMap: FeatureModuleItem[];
+  authMap: AuthMechanismMap;
+  roleMap: RolePermissionMap;
+  workflowMap: WorkflowJourneyItem[];
+  riskAreas: RiskAreaItem[];
+  normalizedSpec: NormalizedProjectSpec;
+  startedAt: Date;
+  completedAt?: Date | null;
+  durationMs: number;
+  errorMessage?: string | null;
+}
+
+export interface DiscoveryProgressEvent {
+  discoveryId: string;
+  projectId: string;
+  status: DiscoveryStatus;
+  progress: number;
+  currentStep: string;
+  logMessage: string;
+  phase: string;
+  timestamp: string;
+  specSummary?: string;
+}
+
+// ============================================================================
 // Zod Schemas for Validation
 // ============================================================================
 
@@ -427,6 +599,74 @@ export const CreateApiKeySchema = z.object({
   expiresInDays: z.number().int().positive().optional()
 });
 
+export const ProjectOnboardingSchema = z.object({
+  // STEP 1: Project Name
+  name: z.string().min(2, 'Project name is required').max(100),
+  description: z.string().max(500).optional(),
+
+  // STEP 2: Project Type
+  category: z.nativeEnum(ProjectCategory).default(ProjectCategory.WEB),
+
+  // STEP 3: Environment
+  environment: z.enum(['LOCAL', 'DEVELOPMENT', 'STAGING', 'PRODUCTION']).default('STAGING'),
+
+  // STEP 4: Application URL
+  appUrl: z.string().url('Must be a valid URL').optional().or(z.literal('')),
+
+  // STEP 5: API Base URL
+  apiBaseUrl: z.string().url('Must be a valid URL').optional().or(z.literal('')),
+
+  // STEP 6: Authentication Configuration
+  authConfig: z
+    .object({
+      type: z.enum(['NONE', 'BEARER', 'BASIC', 'COOKIE', 'CUSTOM_HEADER', 'LOGIN_FLOW']).default('NONE'),
+      username: z.string().optional(),
+      password: z.string().optional(),
+      token: z.string().optional(),
+      loginUrl: z.string().optional(),
+      customHeaderName: z.string().optional(),
+      customHeaderValue: z.string().optional()
+    })
+    .default({ type: 'NONE' }),
+
+  // STEP 7: Optional PRD Upload / Text
+  prdContent: z.string().optional(),
+
+  // STEP 8: Optional Repository Connection
+  repoConfig: z
+    .object({
+      repositoryUrl: z.string().optional(),
+      branch: z.string().default('main'),
+      localPath: z.string().optional()
+    })
+    .default({ branch: 'main' }),
+
+  // STEP 9: Testing Preferences
+  testingPreferences: z
+    .object({
+      engineType: z.nativeEnum(EngineType).default(EngineType.PLAYWRIGHT),
+      viewportWidth: z.number().default(1280),
+      viewportHeight: z.number().default(720),
+      headless: z.boolean().default(true),
+      autoHeal: z.boolean().default(true),
+      captureVideo: z.boolean().default(true),
+      captureScreenshots: z.boolean().default(true),
+      timeoutMs: z.number().default(30000)
+    })
+    .default({
+      engineType: EngineType.PLAYWRIGHT,
+      viewportWidth: 1280,
+      viewportHeight: 720,
+      headless: true,
+      autoHeal: true,
+      captureVideo: true,
+      captureScreenshots: true,
+      timeoutMs: 30000
+    }),
+
+  triggerDiscovery: z.boolean().default(true)
+});
+
 export const CreateProjectSchema = z.object({
   organizationId: z.string().min(1),
   teamId: z.string().optional(),
@@ -437,6 +677,11 @@ export const CreateProjectSchema = z.object({
   repositoryUrl: z.string().url().optional().or(z.literal('')),
   baseUrl: z.string().url().optional().or(z.literal('')),
   specUrl: z.string().url().optional().or(z.literal('')),
+  appUrl: z.string().optional(),
+  authConfig: z.string().optional(),
+  repoConfig: z.string().optional(),
+  testingPreferences: z.string().optional(),
+  prdContent: z.string().optional(),
   settings: z.record(z.unknown()).default({})
 });
 
@@ -543,6 +788,7 @@ export type InviteMemberInput = z.infer<typeof InviteMemberSchema>;
 export type UpdateMemberRoleInput = z.infer<typeof UpdateMemberRoleSchema>;
 export type CreateApiKeyInput = z.infer<typeof CreateApiKeySchema>;
 
+export type ProjectOnboardingInput = z.infer<typeof ProjectOnboardingSchema>;
 export type CreateProjectInput = z.infer<typeof CreateProjectSchema>;
 export type CreateEnvironmentInput = z.infer<typeof CreateEnvironmentSchema>;
 export type CreateTestSuiteInput = z.infer<typeof CreateTestSuiteSchema>;

@@ -97,29 +97,64 @@ model TeamMember {
 }
 
 model Project {
-  id             String        @id @default(cuid())
-  organizationId String
-  teamId         String?
-  name           String
-  slug           String
-  description    String?
-  category       String        @default("WEB")
-  engineType     String        @default("PLAYWRIGHT")
-  repositoryUrl  String?
-  baseUrl        String?
-  specUrl        String?
-  settings       String        @default("{}")
-  organization   Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  team           Team?         @relation(fields: [teamId], references: [id], onDelete: SetNull)
-  environments   Environment[]
-  testSuites     TestSuite[]
-  testRuns       TestRun[]
-  findings       Finding[]
-  apiKeys        ApiKey[]
-  createdAt      DateTime      @default(now())
-  updatedAt      DateTime      @updatedAt
+  id                 String             @id @default(cuid())
+  organizationId     String
+  teamId             String?
+  name               String
+  slug               String
+  description        String?
+  category           String             @default("WEB")
+  engineType         String             @default("PLAYWRIGHT")
+  repositoryUrl      String?
+  baseUrl            String?
+  specUrl            String?
+  appUrl             String?
+  authConfig         String             @default("{}")
+  repoConfig         String             @default("{}")
+  testingPreferences String             @default("{}")
+  prdContent         String?
+  settings           String             @default("{}")
+  organization       Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  team               Team?              @relation(fields: [teamId], references: [id], onDelete: SetNull)
+  environments       Environment[]
+  testSuites         TestSuite[]
+  testRuns           TestRun[]
+  findings           Finding[]
+  apiKeys            ApiKey[]
+  discoveries        ProjectDiscovery[]
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
 
   @@unique([organizationId, slug])
+}
+
+model ProjectDiscovery {
+  id             String    @id @default(cuid())
+  projectId      String
+  status         String    @default("PENDING") // PENDING, IN_PROGRESS, COMPLETED, FAILED
+  progress       Int       @default(0)
+  currentStep    String    @default("INITIALIZING")
+  logs           String    @default("[]")
+  techStack      String    @default("{}")
+  applicationMap String    @default("{}")
+  routesMap      String    @default("[]")
+  apiMap         String    @default("[]")
+  featureMap     String    @default("[]")
+  authMap        String    @default("{}")
+  roleMap        String    @default("[]")
+  workflowMap    String    @default("[]")
+  riskAreas      String    @default("[]")
+  normalizedSpec String    @default("{}")
+  rawAnalysis    String    @default("{}")
+  startedAt      DateTime  @default(now())
+  completedAt    DateTime?
+  durationMs     Int       @default(0)
+  errorMessage   String?
+  project        Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@index([projectId, createdAt])
 }
 
 model Environment {

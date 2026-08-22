@@ -34,6 +34,7 @@ enum ProjectCategory {
   MOBILE_FLUTTER
   MICROSERVICE
   FULLSTACK
+  OTHER
 }
 
 enum EngineType {
@@ -94,6 +95,13 @@ enum ArtifactType {
   CONSOLE_LOG
   EXECUTION_TRACE
   API_RESPONSE
+}
+
+enum DiscoveryStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  FAILED
 }
 
 model User {
@@ -186,29 +194,64 @@ model TeamMember {
 }
 
 model Project {
+  id                 String             @id @default(cuid())
+  organizationId     String
+  teamId             String?
+  name               String
+  slug               String
+  description        String?
+  category           ProjectCategory    @default(WEB)
+  engineType         EngineType         @default(PLAYWRIGHT)
+  repositoryUrl      String?
+  baseUrl            String?
+  specUrl            String?
+  appUrl             String?
+  authConfig         Json               @default("{}")
+  repoConfig         Json               @default("{}")
+  testingPreferences Json               @default("{}")
+  prdContent         String?
+  settings           Json               @default("{}")
+  organization       Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  team               Team?              @relation(fields: [teamId], references: [id], onDelete: SetNull)
+  environments       Environment[]
+  testSuites         TestSuite[]
+  testRuns           TestRun[]
+  findings           Finding[]
+  apiKeys            ApiKey[]
+  discoveries        ProjectDiscovery[]
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+
+  @@unique([organizationId, slug])
+}
+
+model ProjectDiscovery {
   id             String          @id @default(cuid())
-  organizationId String
-  teamId         String?
-  name           String
-  slug           String
-  description    String?
-  category       ProjectCategory @default(WEB)
-  engineType     EngineType      @default(PLAYWRIGHT)
-  repositoryUrl  String?
-  baseUrl        String?
-  specUrl        String?
-  settings       Json            @default("{}")
-  organization   Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  team           Team?           @relation(fields: [teamId], references: [id], onDelete: SetNull)
-  environments   Environment[]
-  testSuites     TestSuite[]
-  testRuns       TestRun[]
-  findings       Finding[]
-  apiKeys        ApiKey[]
+  projectId      String
+  status         DiscoveryStatus @default(PENDING)
+  progress       Int             @default(0)
+  currentStep    String          @default("INITIALIZING")
+  logs           Json            @default("[]")
+  techStack      Json            @default("{}")
+  applicationMap Json            @default("{}")
+  routesMap      Json            @default("[]")
+  apiMap         Json            @default("[]")
+  featureMap     Json            @default("[]")
+  authMap        Json            @default("{}")
+  roleMap        Json            @default("[]")
+  workflowMap    Json            @default("[]")
+  riskAreas      Json            @default("[]")
+  normalizedSpec Json            @default("{}")
+  rawAnalysis    Json            @default("{}")
+  startedAt      DateTime        @default(now())
+  completedAt    DateTime?
+  durationMs     Int             @default(0)
+  errorMessage   String?
+  project        Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
   createdAt      DateTime        @default(now())
   updatedAt      DateTime        @updatedAt
 
-  @@unique([organizationId, slug])
+  @@index([projectId, createdAt])
 }
 
 model Environment {

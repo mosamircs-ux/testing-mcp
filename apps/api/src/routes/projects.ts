@@ -41,9 +41,11 @@ projectsRouter.get('/api/v1/projects', requirePermission('project.read'), async 
 projectsRouter.get('/api/v1/projects/:id', requirePermission('project.read'), requireProjectAccess, async (req, res, next) => {
   try {
     const orgId = req.auth!.organizationId;
+    const id = String(req.params.id);
+
     const project = await prisma.project.findFirst({
       where: {
-        id: req.params.id,
+        id,
         organizationId: orgId
       },
       include: {
@@ -61,7 +63,7 @@ projectsRouter.get('/api/v1/projects/:id', requirePermission('project.read'), re
     });
 
     if (!project) {
-      throw new NotFoundError('Project', req.params.id);
+      throw new NotFoundError('Project', id);
     }
 
     res.json({ success: true, data: project });
@@ -122,7 +124,7 @@ const UpdateProjectSchema = z.object({
 // 4. Update Project (requires project.update)
 projectsRouter.patch('/api/v1/projects/:id', requirePermission('project.update'), requireProjectAccess, async (req, res, next) => {
   try {
-    const { id } = req.params;
+    const id = String(req.params.id);
     const orgId = req.auth!.organizationId;
 
     const existing = await prisma.project.findFirst({
@@ -155,7 +157,7 @@ projectsRouter.patch('/api/v1/projects/:id', requirePermission('project.update')
 // 5. Delete Project (requires project.delete)
 projectsRouter.delete('/api/v1/projects/:id', requirePermission('project.delete'), requireProjectAccess, async (req, res, next) => {
   try {
-    const { id } = req.params;
+    const id = String(req.params.id);
     const orgId = req.auth!.organizationId;
 
     const existing = await prisma.project.findFirst({
@@ -178,17 +180,19 @@ projectsRouter.delete('/api/v1/projects/:id', requirePermission('project.delete'
 projectsRouter.post('/api/v1/projects/:id/environments', requirePermission('project.update'), requireProjectAccess, async (req, res, next) => {
   try {
     const orgId = req.auth!.organizationId;
+    const projectId = String(req.params.id);
+
     const project = await prisma.project.findFirst({
-      where: { id: req.params.id, organizationId: orgId }
+      where: { id: projectId, organizationId: orgId }
     });
 
     if (!project) {
-      throw new NotFoundError('Project', req.params.id);
+      throw new NotFoundError('Project', projectId);
     }
 
     const payload = CreateEnvironmentSchema.parse({
       ...req.body,
-      projectId: req.params.id
+      projectId
     });
 
     const env = await prisma.environment.create({

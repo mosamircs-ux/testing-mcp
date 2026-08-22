@@ -1,42 +1,56 @@
 import Link from 'next/link';
 import { prisma } from '@novaqa/database';
-import { Play, Activity, CheckCircle, XCircle, AlertTriangle, Clock, ArrowUpRight, Cpu, Layers, Terminal, Sparkles } from 'lucide-react';
+import { Play, Activity, CheckCircle, XCircle, AlertTriangle, Clock, ArrowUpRight, Cpu, Layers, Terminal, Sparkles, Building, Users, Shield } from 'lucide-react';
 
 export const dynamic = 'force-dynamic';
 
 export default async function DashboardPage() {
+  let organizations: any[] = [];
   let projects: any[] = [];
   let recentRuns: any[] = [];
   let findings: any[] = [];
 
   try {
-    projects = await prisma.project.findMany({
+    organizations = await prisma.organization.findMany({
       include: {
-        environments: true,
-        testSuites: { include: { testCases: true } },
-        _count: { select: { testRuns: true, findings: true } }
-      },
-      take: 6
+        _count: { select: { projects: true, members: true } }
+      }
     });
 
-    recentRuns = await prisma.testRun.findMany({
-      include: {
-        project: true,
-        suite: true,
-        environment: true
-      },
-      orderBy: { createdAt: 'desc' },
-      take: 8
-    });
+    const activeOrg = organizations[0];
 
-    findings = await prisma.finding.findMany({
-      include: {
-        project: true,
-        testRun: true
-      },
-      orderBy: { createdAt: 'desc' },
-      take: 4
-    });
+    if (activeOrg) {
+      projects = await prisma.project.findMany({
+        where: { organizationId: activeOrg.id },
+        include: {
+          environments: true,
+          testSuites: { include: { testCases: true } },
+          _count: { select: { testRuns: true, findings: true } }
+        },
+        take: 6
+      });
+
+      recentRuns = await prisma.testRun.findMany({
+        where: { project: { organizationId: activeOrg.id } },
+        include: {
+          project: true,
+          suite: true,
+          environment: true
+        },
+        orderBy: { createdAt: 'desc' },
+        take: 8
+      });
+
+      findings = await prisma.finding.findMany({
+        where: { project: { organizationId: activeOrg.id } },
+        include: {
+          project: true,
+          testRun: true
+        },
+        orderBy: { createdAt: 'desc' },
+        take: 4
+      });
+    }
   } catch (err) {
     console.error('Failed to load dashboard data from database:', err);
   }
@@ -48,27 +62,42 @@ export default async function DashboardPage() {
 
   return (
     <div className="max-w-7xl mx-auto px-6 py-8 space-y-8">
-      {/* Top Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+      {/* Top Header with Tenant Workspace Switcher */}
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 p-5 glass-panel rounded-2xl border border-slate-800">
         <div>
-          <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight text-slate-100 flex items-center gap-3">
-            Testing Orchestrator Console
-            <span className="text-xs px-2.5 py-1 rounded-full bg-cyan-950 text-cyan-400 border border-cyan-800 font-mono">
-              Live Health: Nominal
+          <div className="flex items-center gap-2 mb-1.5">
+            <span className="text-[11px] uppercase tracking-wider text-slate-400 font-semibold flex items-center gap-1.5">
+              <Building className="h-3.5 w-3.5 text-cyan-400" />
+              Active Workspace
             </span>
-          </h1>
-          <p className="text-xs md:text-sm text-slate-400 mt-1">
-            Autonomous multi-engine test orchestration, telemetry capture, and AI failure diagnostics.
-          </p>
+            <span className="text-[10px] px-2 py-0.5 rounded-full bg-cyan-950 text-cyan-400 border border-cyan-800 font-mono font-bold">
+              ENTERPRISE TIER
+            </span>
+          </div>
+          <div className="flex items-center gap-3">
+            <h1 className="text-xl md:text-2xl font-extrabold tracking-tight text-white flex items-center gap-2">
+              Acme Corporation
+            </h1>
+            <span className="text-xs px-2.5 py-0.5 rounded-md bg-slate-800 text-slate-300 border border-slate-700 font-mono">
+              Role: OWNER
+            </span>
+          </div>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 flex-wrap">
+          <Link
+            href="/settings/team"
+            className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-slate-900 border border-slate-700 text-slate-300 hover:text-white flex items-center gap-1.5 transition-colors"
+          >
+            <Users className="h-3.5 w-3.5 text-cyan-400" />
+            Manage Team
+          </Link>
           <Link
             href="/settings/mcp"
-            className="px-4 py-2 text-xs font-semibold rounded-lg glass-panel text-slate-200 border border-slate-700 hover:border-cyan-500/40 transition-colors flex items-center gap-2"
+            className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-slate-900 border border-slate-700 text-slate-300 hover:text-cyan-400 flex items-center gap-1.5 transition-colors"
           >
             <Terminal className="h-3.5 w-3.5 text-cyan-400" />
-            MCP Client Settings
+            MCP Client
           </Link>
           <Link
             href="/projects"
@@ -97,7 +126,7 @@ export default async function DashboardPage() {
 
         <div className="glass-panel p-5 rounded-xl border border-slate-800">
           <div className="flex items-center justify-between text-slate-400 text-xs font-medium">
-            <span>Total Executions</span>
+            <span>Tenant Executions</span>
             <Activity className="h-4 w-4 text-cyan-400" />
           </div>
           <div className="text-2xl md:text-3xl font-extrabold text-slate-100 mt-2">
@@ -142,7 +171,7 @@ export default async function DashboardPage() {
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-bold text-slate-200 flex items-center gap-2">
               <Activity className="h-4 w-4 text-cyan-400" />
-              Recent Test Runs
+              Tenant Test Runs
             </h2>
             <span className="text-xs text-slate-400">Live Telemetry Stream Enabled</span>
           </div>
@@ -255,7 +284,7 @@ export default async function DashboardPage() {
             <div className="flex items-center justify-between mb-3">
               <h2 className="text-base font-bold text-slate-200 flex items-center gap-2">
                 <Layers className="h-4 w-4 text-cyan-400" />
-                Configured Projects
+                Tenant Projects
               </h2>
               <Link href="/projects" className="text-xs text-cyan-400 hover:underline">
                 Manage

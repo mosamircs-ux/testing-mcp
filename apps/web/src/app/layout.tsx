@@ -1,7 +1,7 @@
 import './globals.css';
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { Terminal, Shield, Play, Bug, Cpu, Layers, Key, Activity } from 'lucide-react';
+import { Terminal, Shield, Play, Bug, Cpu, Layers, Key, Activity, Users, Settings, LogIn, UserPlus } from 'lucide-react';
 
 export const metadata: Metadata = {
   title: 'NovaQA | Production Autonomous AI Software Testing Platform',
@@ -27,48 +27,76 @@ export default function RootLayout({
                 <span className="font-bold text-lg tracking-tight flex items-center gap-1.5">
                   Nova<span className="text-cyan-400">QA</span>
                   <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-cyan-950 text-cyan-400 border border-cyan-800 font-mono">
-                    MCP v1.0
+                    SaaS v2.0
                   </span>
                 </span>
-                <span className="text-[10px] text-slate-400 font-medium">Autonomous Test Platform</span>
+                <span className="text-[10px] text-slate-400 font-medium">Autonomous Multi-Tenant Platform</span>
               </div>
             </Link>
 
-            <nav className="hidden md:flex items-center gap-1">
+            <nav className="hidden lg:flex items-center gap-1">
               <Link
                 href="/dashboard"
-                className="px-3.5 py-1.5 text-sm font-medium text-slate-300 hover:text-cyan-400 hover:bg-slate-800/50 rounded-lg transition-colors flex items-center gap-2"
+                className="px-3 py-1.5 text-sm font-medium text-slate-300 hover:text-cyan-400 hover:bg-slate-800/50 rounded-lg transition-colors flex items-center gap-2"
               >
                 <Activity className="h-4 w-4" />
                 Dashboard
               </Link>
               <Link
                 href="/projects"
-                className="px-3.5 py-1.5 text-sm font-medium text-slate-300 hover:text-cyan-400 hover:bg-slate-800/50 rounded-lg transition-colors flex items-center gap-2"
+                className="px-3 py-1.5 text-sm font-medium text-slate-300 hover:text-cyan-400 hover:bg-slate-800/50 rounded-lg transition-colors flex items-center gap-2"
               >
                 <Layers className="h-4 w-4" />
                 Projects
               </Link>
               <Link
                 href="/findings"
-                className="px-3.5 py-1.5 text-sm font-medium text-slate-300 hover:text-cyan-400 hover:bg-slate-800/50 rounded-lg transition-colors flex items-center gap-2"
+                className="px-3 py-1.5 text-sm font-medium text-slate-300 hover:text-cyan-400 hover:bg-slate-800/50 rounded-lg transition-colors flex items-center gap-2"
               >
                 <Bug className="h-4 w-4" />
                 AI Findings
               </Link>
               <Link
+                href="/settings/team"
+                className="px-3 py-1.5 text-sm font-medium text-slate-300 hover:text-cyan-400 hover:bg-slate-800/50 rounded-lg transition-colors flex items-center gap-2"
+              >
+                <Users className="h-4 w-4" />
+                Team & RBAC
+              </Link>
+              <Link
+                href="/settings/api-keys"
+                className="px-3 py-1.5 text-sm font-medium text-slate-300 hover:text-cyan-400 hover:bg-slate-800/50 rounded-lg transition-colors flex items-center gap-2"
+              >
+                <Key className="h-4 w-4" />
+                API Keys
+              </Link>
+              <Link
                 href="/settings/mcp"
-                className="px-3.5 py-1.5 text-sm font-medium text-cyan-300 bg-cyan-950/40 border border-cyan-800/50 hover:bg-cyan-900/40 rounded-lg transition-colors flex items-center gap-2"
+                className="px-3 py-1.5 text-sm font-medium text-cyan-300 bg-cyan-950/40 border border-cyan-800/50 hover:bg-cyan-900/40 rounded-lg transition-colors flex items-center gap-2"
               >
                 <Terminal className="h-4 w-4 text-cyan-400" />
                 MCP Hub
               </Link>
             </nav>
 
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
+              <Link
+                href="/login"
+                className="px-3 py-1.5 text-xs font-semibold rounded-lg text-slate-300 hover:text-white hover:bg-slate-800/70 border border-slate-700/60 transition-all flex items-center gap-1.5"
+              >
+                <LogIn className="h-3.5 w-3.5" />
+                Sign In
+              </Link>
+              <Link
+                href="/settings/profile"
+                className="p-2 rounded-lg text-slate-300 hover:text-cyan-400 hover:bg-slate-800/70 border border-slate-800 transition-colors"
+                title="Account Settings"
+              >
+                <Settings className="h-4 w-4" />
+              </Link>
               <Link
                 href="/dashboard"
-                className="px-4 py-2 text-xs font-semibold rounded-lg bg-gradient-to-r from-cyan-500 to-accent-500 text-slate-950 hover:brightness-110 shadow-glow transition-all flex items-center gap-1.5"
+                className="px-3.5 py-1.5 text-xs font-semibold rounded-lg bg-gradient-to-r from-cyan-500 to-accent-500 text-slate-950 hover:brightness-110 shadow-glow transition-all flex items-center gap-1.5"
               >
                 <Play className="h-3.5 w-3.5 fill-slate-950" />
                 Launch Suite
@@ -84,11 +112,15 @@ export default function RootLayout({
         <footer className="border-t border-slate-800/60 py-8 px-6 bg-slate-950/80 text-xs text-slate-500">
           <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
             <div className="flex items-center gap-2">
-              <span className="font-semibold text-slate-300">NovaQA Testing Engine</span>
+              <span className="font-semibold text-slate-300">NovaQA Enterprise Platform</span>
               <span>•</span>
-              <span>Next.js • Playwright • Redis • PostgreSQL • MCP Bridge</span>
+              <span>Multi-Tenancy • RBAC • MCP • Playwright • SQLite/PostgreSQL</span>
             </div>
-            <p>© 2026 NovaQA Inc. Production-grade autonomous quality platform.</p>
+            <div className="flex items-center gap-4 text-slate-400">
+              <Link href="/settings/security" className="hover:text-cyan-400">Security</Link>
+              <Link href="/settings/team" className="hover:text-cyan-400">Tenants & Teams</Link>
+              <Link href="/settings/api-keys" className="hover:text-cyan-400">API Keys</Link>
+            </div>
           </div>
         </footer>
       </body>

@@ -92,9 +92,10 @@ runsRouter.get('/api/v1/runs', requirePermission('run.read'), async (req, res, n
 // 3. Get Test Run Details (tenant-scoped, requires run.read)
 runsRouter.get('/api/v1/runs/:id', requirePermission('run.read'), async (req, res, next) => {
   try {
+    const id = String(req.params.id);
     const run = await prisma.testRun.findFirst({
       where: {
-        id: req.params.id,
+        id,
         project: { organizationId: req.auth!.organizationId }
       },
       include: {
@@ -113,7 +114,7 @@ runsRouter.get('/api/v1/runs/:id', requirePermission('run.read'), async (req, re
       }
     });
 
-    if (!run) throw new NotFoundError('TestRun', req.params.id);
+    if (!run) throw new NotFoundError('TestRun', id);
 
     res.json({ success: true, data: run });
   } catch (err) {
@@ -124,17 +125,18 @@ runsRouter.get('/api/v1/runs/:id', requirePermission('run.read'), async (req, re
 // 4. Cancel Test Run (requires run.cancel)
 runsRouter.post('/api/v1/runs/:id/cancel', requirePermission('run.cancel'), async (req, res, next) => {
   try {
+    const id = String(req.params.id);
     const run = await prisma.testRun.findFirst({
       where: {
-        id: req.params.id,
+        id,
         project: { organizationId: req.auth!.organizationId }
       }
     });
 
-    if (!run) throw new NotFoundError('TestRun', req.params.id);
+    if (!run) throw new NotFoundError('TestRun', id);
 
     const updated = await prisma.testRun.update({
-      where: { id: req.params.id },
+      where: { id },
       data: { status: TestRunStatus.CANCELLED, completedAt: new Date() }
     });
 
@@ -147,7 +149,7 @@ runsRouter.post('/api/v1/runs/:id/cancel', requirePermission('run.cancel'), asyn
 // 5. Live Server-Sent Events (SSE) Stream for real-time test run logs & step progress
 runsRouter.get('/api/v1/runs/:id/stream', async (req, res, next) => {
   try {
-    const runId = req.params.id;
+    const runId = String(req.params.id);
 
     // Verify access
     const runCheck = await prisma.testRun.findFirst({
@@ -210,9 +212,10 @@ runsRouter.get('/api/v1/runs/:id/stream', async (req, res, next) => {
 // 6. Export JUnit XML Report
 runsRouter.get('/api/v1/runs/:id/report/junit.xml', requirePermission('run.read'), async (req, res, next) => {
   try {
+    const id = String(req.params.id);
     const run = await prisma.testRun.findFirst({
       where: {
-        id: req.params.id,
+        id,
         project: { organizationId: req.auth!.organizationId }
       },
       include: {
@@ -221,11 +224,11 @@ runsRouter.get('/api/v1/runs/:id/report/junit.xml', requirePermission('run.read'
       }
     });
 
-    if (!run) throw new NotFoundError('TestRun', req.params.id);
+    if (!run) throw new NotFoundError('TestRun', id);
 
     const reportData = {
       run: run as any,
-      results: run.results.map((r) => ({
+      results: run.results.map((r: any) => ({
         ...r,
         testCaseTitle: r.testCase.title
       })) as any,
@@ -243,9 +246,10 @@ runsRouter.get('/api/v1/runs/:id/report/junit.xml', requirePermission('run.read'
 // 7. Export Markdown Report
 runsRouter.get('/api/v1/runs/:id/report/summary.md', requirePermission('run.read'), async (req, res, next) => {
   try {
+    const id = String(req.params.id);
     const run = await prisma.testRun.findFirst({
       where: {
-        id: req.params.id,
+        id,
         project: { organizationId: req.auth!.organizationId }
       },
       include: {
@@ -254,11 +258,11 @@ runsRouter.get('/api/v1/runs/:id/report/summary.md', requirePermission('run.read
       }
     });
 
-    if (!run) throw new NotFoundError('TestRun', req.params.id);
+    if (!run) throw new NotFoundError('TestRun', id);
 
     const reportData = {
       run: run as any,
-      results: run.results.map((r) => ({
+      results: run.results.map((r: any) => ({
         ...r,
         testCaseTitle: r.testCase.title
       })) as any,

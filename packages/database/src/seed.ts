@@ -28,7 +28,6 @@ export async function main() {
   await prisma.finding.deleteMany();
   await prisma.artifact.deleteMany();
   await prisma.testResult.deleteMany();
-  await prisma.testStepResult?.deleteMany?.().catch(() => {});
   await prisma.testRun.deleteMany();
   await prisma.testCaseStep.deleteMany();
   await prisma.testCase.deleteMany();

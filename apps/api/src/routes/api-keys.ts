@@ -102,20 +102,21 @@ apiKeysRouter.post('/api/v1/api-keys', requirePermission('api_key.create'), asyn
 // 3. Revoke API Key (requires api_key.delete, tenant-scoped)
 apiKeysRouter.delete('/api/v1/api-keys/:id', requirePermission('api_key.delete'), async (req, res, next) => {
   try {
+    const id = String(req.params.id);
     const key = await prisma.apiKey.findFirst({
       where: {
-        id: req.params.id,
+        id,
         organizationId: req.auth!.organizationId
       }
     });
 
     if (!key) {
-      throw new NotFoundError('ApiKey', req.params.id);
+      throw new NotFoundError('ApiKey', id);
     }
 
     // Soft revoke and clean sessions
     await prisma.apiKey.update({
-      where: { id: req.params.id },
+      where: { id },
       data: { revokedAt: new Date() }
     });
 

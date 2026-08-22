@@ -43,18 +43,19 @@ suitesRouter.post('/api/v1/suites', requirePermission('test.create'), async (req
 // 2. Create Test Case inside Suite (requires test.create)
 suitesRouter.post('/api/v1/suites/:id/cases', requirePermission('test.create'), async (req, res, next) => {
   try {
+    const id = String(req.params.id);
     const suite = await prisma.testSuite.findUnique({
-      where: { id: req.params.id },
+      where: { id },
       include: { project: true }
     });
 
     if (!suite || suite.project.organizationId !== req.auth!.organizationId) {
-      throw new NotFoundError('TestSuite', req.params.id);
+      throw new NotFoundError('TestSuite', id);
     }
 
     const payload = CreateTestCaseSchema.parse({
       ...req.body,
-      suiteId: req.params.id
+      suiteId: id
     });
 
     const testCase = await prisma.testCase.create({
@@ -90,16 +91,17 @@ suitesRouter.post('/api/v1/suites/:id/cases', requirePermission('test.create'), 
 // 3. Delete Test Suite (requires test.delete)
 suitesRouter.delete('/api/v1/suites/:id', requirePermission('test.delete'), async (req, res, next) => {
   try {
+    const id = String(req.params.id);
     const suite = await prisma.testSuite.findUnique({
-      where: { id: req.params.id },
+      where: { id },
       include: { project: true }
     });
 
     if (!suite || suite.project.organizationId !== req.auth!.organizationId) {
-      throw new NotFoundError('TestSuite', req.params.id);
+      throw new NotFoundError('TestSuite', id);
     }
 
-    await prisma.testSuite.delete({ where: { id: req.params.id } });
+    await prisma.testSuite.delete({ where: { id } });
     res.json({ success: true, message: 'Test suite deleted successfully' });
   } catch (err) {
     next(err);

@@ -114,7 +114,7 @@ teamRouter.post('/api/v1/team/invite', requirePermission('team.manage'), async (
 // 3. Update Member Role (requires team.manage)
 teamRouter.patch('/api/v1/team/members/:id/role', requirePermission('team.manage'), async (req, res, next) => {
   try {
-    const { id } = req.params;
+    const id = String(req.params.id);
     const { role } = UpdateMemberRoleSchema.parse(req.body);
 
     const targetMember = await prisma.organizationMember.findFirst({
@@ -122,7 +122,7 @@ teamRouter.patch('/api/v1/team/members/:id/role', requirePermission('team.manage
     });
 
     if (!targetMember) {
-      throw new NotFoundError('Organization member not found');
+      throw new NotFoundError('Organization member', id);
     }
 
     // Safety: Prevent demoting the last OWNER
@@ -158,14 +158,14 @@ teamRouter.patch('/api/v1/team/members/:id/role', requirePermission('team.manage
 // 4. Remove Member (requires team.manage)
 teamRouter.delete('/api/v1/team/members/:id', requirePermission('team.manage'), async (req, res, next) => {
   try {
-    const { id } = req.params;
+    const id = String(req.params.id);
 
     const targetMember = await prisma.organizationMember.findFirst({
       where: { id, organizationId: req.auth!.organizationId }
     });
 
     if (!targetMember) {
-      throw new NotFoundError('Organization member not found');
+      throw new NotFoundError('Organization member', id);
     }
 
     // Prevent removing last OWNER

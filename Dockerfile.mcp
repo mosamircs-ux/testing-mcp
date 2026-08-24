@@ -10,7 +10,7 @@ COPY package*.json ./
 COPY packages/ ./packages/
 COPY apps/mcp/ ./apps/mcp/
 COPY tsconfig.base.json ./
-COPY tsconfig.json ./
+COPY tsconfig.base.json ./tsconfig.json
 
 RUN npm ci
 

@@ -12,7 +12,7 @@ COPY package*.json ./
 COPY packages/ ./packages/
 COPY apps/worker/ ./apps/worker/
 COPY tsconfig.base.json ./
-COPY tsconfig.json ./
+COPY tsconfig.base.json ./tsconfig.json
 
 RUN npm ci
 

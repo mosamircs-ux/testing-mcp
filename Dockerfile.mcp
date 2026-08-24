@@ -1,6 +1,3 @@
-# ============================================================================
-# Stage 1: Build MCP Server
-# ============================================================================
 FROM node:20-alpine AS builder
 WORKDIR /app
 
@@ -12,40 +9,27 @@ COPY apps/ ./apps/
 COPY tsconfig.base.json ./
 COPY tsconfig.base.json ./tsconfig.json
 
+RUN cp packages/database/prisma/schema.postgres.prisma packages/database/prisma/schema.prisma
+
 RUN npm install
 
-# Generate Prisma Client
 RUN npx prisma generate --schema=packages/database/prisma/schema.prisma
 
-# Build packages
-RUN npm run --workspace=@novaqa/types build --if-present
-RUN npm run --workspace=@novaqa/shared build --if-present
-RUN npm run --workspace=@novaqa/database build --if-present
-RUN npm run --workspace=@novaqa/auth build --if-present
-RUN npm run --workspace=@novaqa/security build --if-present
-RUN npm run --workspace=@novaqa/reporting build --if-present
-RUN npm run --workspace=@novaqa/test-runner build --if-present
-RUN npm run --workspace=@novaqa/worker build --if-present
-RUN npm run --workspace=@novaqa/mcp build --if-present
-
-# ============================================================================
-# Stage 2: Production MCP Server Runner
-# ============================================================================
 FROM node:20-alpine AS runner
 WORKDIR /app
 
 ENV NODE_ENV=production
 
-RUN addgroup --system --gid 1001 nodejs && \
-    adduser --system --uid 1001 novaqa
+RUN addgroup --system --gid 1001 nodejs &&     adduser --system --uid 1001 novaqa
 
 COPY --from=builder /app/package*.json ./
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/packages ./packages
-COPY --from=builder /app/apps/mcp ./apps/mcp
+COPY --from=builder /app/apps ./apps
+COPY --from=builder /app/tsconfig*.json ./
 
 RUN chown -R novaqa:nodejs /app
 
 USER novaqa
 
-CMD ["node", "apps/mcp/dist/index.js"]
+CMD ["npx", "tsx", "apps/mcp/src/index.ts"]

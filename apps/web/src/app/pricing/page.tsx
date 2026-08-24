@@ -224,7 +224,7 @@ export default function PricingPage() {
   useEffect(() => {
     async function fetchPlansFromDatabase() {
       try {
-        const res = await fetch('http://localhost:4000/api/v1/plans');
+        const res = await fetch('/api/v1/plans');
         if (res.ok) {
           const json = await res.json();
           if (json.data && Array.isArray(json.data) && json.data.length > 0) {

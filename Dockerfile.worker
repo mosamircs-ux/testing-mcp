@@ -1,12 +1,7 @@
-# ============================================================================
-# Stage 1: Build Monorepo Dependencies
-# ============================================================================
 FROM node:20-bookworm-slim AS builder
 WORKDIR /app
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    python3 make g++ \
-    && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y --no-install-recommends     python3 make g++     && rm -rf /var/lib/apt/lists/*
 
 COPY package*.json ./
 COPY packages/ ./packages/
@@ -14,24 +9,12 @@ COPY apps/ ./apps/
 COPY tsconfig.base.json ./
 COPY tsconfig.base.json ./tsconfig.json
 
+RUN cp packages/database/prisma/schema.postgres.prisma packages/database/prisma/schema.prisma
+
 RUN npm install
 
-# Generate Prisma Client
 RUN npx prisma generate --schema=packages/database/prisma/schema.prisma
 
-# Build packages
-RUN npm run --workspace=@novaqa/types build --if-present
-RUN npm run --workspace=@novaqa/shared build --if-present
-RUN npm run --workspace=@novaqa/database build --if-present
-RUN npm run --workspace=@novaqa/auth build --if-present
-RUN npm run --workspace=@novaqa/security build --if-present
-RUN npm run --workspace=@novaqa/reporting build --if-present
-RUN npm run --workspace=@novaqa/test-runner build --if-present
-RUN npm run --workspace=@novaqa/worker build --if-present
-
-# ============================================================================
-# Stage 2: Production Execution Worker with Playwright Headless Grid
-# ============================================================================
 FROM node:20-bookworm-slim AS runner
 WORKDIR /app
 
@@ -39,53 +22,16 @@ ENV NODE_ENV=production
 ENV WORKER_PORT=4001
 ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
 
-# Install Playwright system dependencies
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    wget \
-    ca-certificates \
-    libasound2 \
-    libatk-bridge2.0-0 \
-    libatk1.0-0 \
-    libc6 \
-    libcairo2 \
-    libcups2 \
-    libdbus-1-3 \
-    libexpat1 \
-    libfontconfig1 \
-    libgbm1 \
-    libgcc1 \
-    libglib2.0-0 \
-    libgtk-3-0 \
-    libnspr4 \
-    libnss3 \
-    libpango-1.0-0 \
-    libpangocairo-1.0-0 \
-    libstdc++6 \
-    libx11-6 \
-    libx11-xcb1 \
-    libxcb1 \
-    libxcomposite1 \
-    libxcursor1 \
-    libxdamage1 \
-    libxext6 \
-    libxfixes3 \
-    libxi6 \
-    libxrandr2 \
-    libxrender1 \
-    libxss1 \
-    libxtst6 \
-    && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y --no-install-recommends     wget     ca-certificates     libasound2     libatk-bridge2.0-0     libatk1.0-0     libc6     libcairo2     libcups2     libdbus-1-3     libexpat1     libfontconfig1     libgbm1     libgcc1     libglib2.0-0     libgtk-3-0     libnspr4     libnss3     libpango-1.0-0     libpangocairo-1.0-0     libstdc++6     libx11-6     libx11-xcb1     libxcb1     libxcomposite1     libxcursor1     libxdamage1     libxext6     libxfixes3     libxi6     libxrandr2     libxrender1     libxss1     libxtst6     && rm -rf /var/lib/apt/lists/*
 
-# Install Playwright browsers (Chromium & Firefox)
 RUN npx playwright install --with-deps chromium firefox
 
-# Copy built application
 COPY --from=builder /app/package*.json ./
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/packages ./packages
 COPY --from=builder /app/apps ./apps
+COPY --from=builder /app/tsconfig*.json ./
 
-# Create system user
 RUN groupadd -r novaqa && useradd -r -g novaqa -G audio,video novaqa
 RUN chown -R novaqa:novaqa /app /ms-playwright
 
@@ -93,7 +39,6 @@ USER novaqa
 
 EXPOSE 4001
 
-HEALTHCHECK --interval=15s --timeout=5s --start-period=10s --retries=3 \
-  CMD wget --no-verbose --tries=1 --spider http://localhost:4001/health || exit 1
+HEALTHCHECK --interval=15s --timeout=5s --start-period=10s --retries=3   CMD wget --no-verbose --tries=1 --spider http://localhost:4001/health || exit 1
 
-CMD ["node", "apps/worker/dist/index.js"]
+CMD ["npx", "tsx", "apps/worker/src/index.ts"]

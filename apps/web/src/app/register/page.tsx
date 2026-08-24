@@ -21,7 +21,7 @@ export default function RegisterPage() {
     setError(null);
 
     try {
-      const res = await fetch('http://localhost:4000/api/v1/auth/register', {
+      const res = await fetch('/api/v1/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

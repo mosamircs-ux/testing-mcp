@@ -88,7 +88,7 @@ function CheckoutContent() {
   useEffect(() => {
     async function loadPlans() {
       try {
-        const res = await fetch('http://localhost:4000/api/v1/plans');
+        const res = await fetch('/api/v1/plans');
         if (res.ok) {
           const json = await res.json();
           if (json.data && Array.isArray(json.data) && json.data.length > 0) {
@@ -124,7 +124,7 @@ function CheckoutContent() {
     if (token) {
       setAuthToken(token);
       // Attempt to load current user profile
-      fetch('http://localhost:4000/api/v1/auth/me', {
+      fetch('/api/v1/auth/me', {
         headers: { Authorization: `Bearer ${token}` }
       })
         .then((r) => r.json())
@@ -170,7 +170,7 @@ function CheckoutContent() {
         : { email: authEmail, password: authPassword };
 
     try {
-      const res = await fetch(`http://localhost:4000${endpoint}`, {
+      const res = await fetch(`${endpoint}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
@@ -214,7 +214,7 @@ function CheckoutContent() {
         const headers: Record<string, string> = { 'Content-Type': 'application/json' };
         if (authToken) headers['Authorization'] = `Bearer ${authToken}`;
 
-        const res = await fetch('http://localhost:4000/api/v1/billing/activate-free', {
+        const res = await fetch('/api/v1/billing/activate-free', {
           method: 'POST',
           headers,
           body: JSON.stringify({ organizationId: selectedOrgId || 'org_demo_1' })
@@ -243,13 +243,13 @@ function CheckoutContent() {
       const headers: Record<string, string> = { 'Content-Type': 'application/json' };
       if (authToken) headers['Authorization'] = `Bearer ${authToken}`;
 
-      const res = await fetch('http://localhost:4000/api/v1/payments/paymob/create', {
+      const res = await fetch('/api/v1/payments/paymob/create', {
         method: 'POST',
         headers,
         body: JSON.stringify({
           planSlug: selectedPlan.slug,
           interval: billingInterval,
-          returnUrl: `http://localhost:3000/checkout?status=success&plan=${selectedPlan.slug}`,
+          returnUrl: `/checkout?status=success&plan=${selectedPlan.slug}`,
           customerInfo: {
             firstName: customerInfo.firstName,
             lastName: customerInfo.lastName,
@@ -300,7 +300,7 @@ function CheckoutContent() {
         }
       };
 
-      const webhookRes = await fetch('http://localhost:4000/api/v1/payments/paymob/webhook', {
+      const webhookRes = await fetch('/api/v1/payments/paymob/webhook', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(webhookPayload)
@@ -309,7 +309,7 @@ function CheckoutContent() {
       const webhookResult = await webhookRes.json();
 
       // Now query backend payment status to guarantee backend activated it
-      const paymentCheckRes = await fetch(`http://localhost:4000/api/v1/payments/${paymentData.paymentId}`, {
+      const paymentCheckRes = await fetch(`/api/v1/payments/${paymentData.paymentId}`, {
         headers: authToken ? { Authorization: `Bearer ${authToken}` } : {}
       });
       const paymentCheck = await paymentCheckRes.json();

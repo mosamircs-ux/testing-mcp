@@ -18,6 +18,12 @@ function hashApiKey(rawKey: string) {
 export async function main() {
   console.log('🌱 Starting NovaQA Multi-Tenant Database Seeding...');
 
+  const existingCount = await prisma.user.count();
+  if (existingCount > 0 && process.env.FORCE_SEED !== 'true') {
+    console.log(`ℹ️ Database already contains ${existingCount} users. Skipping seeding (set FORCE_SEED=true to override).`);
+    return;
+  }
+
   // Clean existing records safely
   await prisma.auditLog.deleteMany();
   await prisma.usageMetric.deleteMany();
@@ -48,25 +54,23 @@ export async function main() {
       email: 'alice@acme.com',
       name: 'Alice (Acme Owner)',
       passwordHash: defaultPasswordHash,
-      isEmailVerified: true,
-      avatarUrl: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150'
+      isEmailVerified: true
     }
   });
 
   const bob = await prisma.user.create({
     data: {
       email: 'bob@acme.com',
-      name: 'Bob (Acme QA)',
+      name: 'Bob (Acme QA Lead)',
       passwordHash: defaultPasswordHash,
-      isEmailVerified: true,
-      avatarUrl: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150'
+      isEmailVerified: true
     }
   });
 
   const charlie = await prisma.user.create({
     data: {
       email: 'charlie@acme.com',
-      name: 'Charlie (Acme Dev)',
+      name: 'Charlie (Acme Developer)',
       passwordHash: defaultPasswordHash,
       isEmailVerified: true
     }
@@ -166,13 +170,13 @@ export async function main() {
       category: 'ECOMMERCE',
       engineType: 'PLAYWRIGHT',
       repositoryUrl: 'https://github.com/acme/storefront',
-      baseUrl: 'http://localhost:3000',
-      settings: JSON.stringify({
+      baseUrl: 'https://novaqa.thebuildflow.site',
+      settings: {
         viewport: { width: 1280, height: 720 },
         captureScreenshotsOnFailure: true,
         recordVideo: true,
         autoHealEnabled: true
-      })
+      }
     }
   });
 
@@ -185,12 +189,12 @@ export async function main() {
       description: 'Microservice handling customer orders, inventory checks, and Stripe webhooks',
       category: 'REST_API',
       engineType: 'API_REST',
-      baseUrl: 'http://localhost:4000',
-      specUrl: 'http://localhost:4000/docs/openapi.json',
-      settings: JSON.stringify({
+      baseUrl: 'https://novaqa.thebuildflow.site',
+      specUrl: 'https://novaqa.thebuildflow.site/docs/openapi.json',
+      settings: {
         timeoutMs: 10000,
         validateSchema: true
-      })
+      }
     }
   });
 
@@ -204,9 +208,9 @@ export async function main() {
       category: 'SAAS',
       engineType: 'PLAYWRIGHT',
       baseUrl: 'https://logistics.globex.internal',
-      settings: JSON.stringify({
+      settings: {
         autoHealEnabled: true
-      })
+      }
     }
   });
 
@@ -216,7 +220,7 @@ export async function main() {
       projectId: storeProject.id,
       name: 'Staging Sandbox',
       slug: 'staging',
-      baseUrl: 'http://localhost:3000',
+      baseUrl: 'https://novaqa.thebuildflow.site',
       isDefault: true
     }
   });
@@ -237,7 +241,7 @@ export async function main() {
       projectId: storeProject.id,
       name: 'Checkout & Cart Flow Suite',
       description: 'Critical business path: add to cart, apply coupon, fill checkout form, confirm order',
-      tags: JSON.stringify(['critical-path', 'smoke', 'p0']),
+      tags: ['critical-path', 'smoke', 'p0'],
       isActive: true
     }
   });
@@ -249,16 +253,15 @@ export async function main() {
       category: 'functional',
       priority: 'HIGH',
       expectedResult: 'Cart drawer opens and shows 1 item with total $49.00',
-      codeSnippet: `await page.goto('http://localhost:3000/products/classic-tee');\nawait page.click('[data-testid="add-to-cart"]');\nawait expect(page.locator('[data-testid="cart-badge"]')).toHaveText('1');`,
+      codeSnippet: `await page.goto('https://novaqa.thebuildflow.site/pricing');\nawait expect(page.locator('h1')).toBeVisible();`,
       autoHealEnabled: true
     }
   });
 
   await prisma.testCaseStep.createMany({
     data: [
-      { testCaseId: cartTestCase.id, order: 1, action: 'NAVIGATE', target: 'http://localhost:3000/products/classic-tee', description: 'Open product detail page' },
-      { testCaseId: cartTestCase.id, order: 2, action: 'CLICK', target: '[data-testid="add-to-cart"]', description: 'Click Add to Cart button' },
-      { testCaseId: cartTestCase.id, order: 3, action: 'ASSERT', target: '[data-testid="cart-badge"]', value: '1', description: 'Assert cart badge counter equals 1' }
+      { testCaseId: cartTestCase.id, order: 1, action: 'NAVIGATE', target: 'https://novaqa.thebuildflow.site/pricing', description: 'Open pricing page' },
+      { testCaseId: cartTestCase.id, order: 2, action: 'ASSERT', target: 'h1', description: 'Assert heading is visible' }
     ]
   });
 
@@ -287,11 +290,10 @@ export async function main() {
       testCaseId: cartTestCase.id,
       status: 'PASSED',
       durationMs: 1450,
-      stepResults: JSON.stringify([
+      stepResults: [
         { stepId: 'step-1', order: 1, action: 'NAVIGATE', status: 'PASSED', durationMs: 400 },
-        { stepId: 'step-2', order: 2, action: 'CLICK', status: 'PASSED', durationMs: 250 },
-        { stepId: 'step-3', order: 3, action: 'ASSERT', status: 'PASSED', durationMs: 800 }
-      ])
+        { stepId: 'step-2', order: 2, action: 'ASSERT', status: 'PASSED', durationMs: 800 }
+      ]
     }
   });
 

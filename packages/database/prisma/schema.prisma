@@ -270,6 +270,8 @@ model TestCase {
   selfHealLogs    SelfHealLog[]
   createdAt       DateTime       @default(now())
   updatedAt       DateTime       @updatedAt
+
+  @@index([suiteId])
 }
 
 model TestCaseStep {
@@ -309,6 +311,9 @@ model TestRun {
   artifacts     Artifact[]
   findings      Finding[]
   createdAt     DateTime      @default(now())
+
+  @@index([projectId, createdAt])
+  @@index([status])
 }
 
 model TestResult {

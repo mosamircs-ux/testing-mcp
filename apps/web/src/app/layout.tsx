@@ -1,7 +1,7 @@
 import './globals.css';
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { Terminal, Shield, Play, Bug, Cpu, Layers, Key, Activity, Users, Settings, LogIn, UserPlus } from 'lucide-react';
+import { Terminal, Shield, Play, Bug, Cpu, Layers, Key, Activity, Users, Settings, LogIn, UserPlus, FileCode2 } from 'lucide-react';
 
 export const metadata: Metadata = {
   title: 'NovaQA | Production Autonomous AI Software Testing Platform',
@@ -34,55 +34,85 @@ export default function RootLayout({
               </div>
             </Link>
 
-            <nav className="hidden lg:flex items-center gap-1">
+            <nav className="hidden xl:flex items-center gap-1">
               <Link
                 href="/dashboard"
-                className="px-3 py-1.5 text-sm font-medium text-slate-300 hover:text-cyan-400 hover:bg-slate-800/50 rounded-lg transition-colors flex items-center gap-2"
+                className="px-2.5 py-1.5 text-xs font-medium text-slate-300 hover:text-cyan-400 hover:bg-slate-800/50 rounded-lg transition-colors flex items-center gap-1.5"
               >
-                <Activity className="h-4 w-4" />
+                <Activity className="h-3.5 w-3.5" />
                 Dashboard
               </Link>
               <Link
                 href="/projects"
-                className="px-3 py-1.5 text-sm font-medium text-slate-300 hover:text-cyan-400 hover:bg-slate-800/50 rounded-lg transition-colors flex items-center gap-2"
+                className="px-2.5 py-1.5 text-xs font-medium text-slate-300 hover:text-cyan-400 hover:bg-slate-800/50 rounded-lg transition-colors flex items-center gap-1.5"
               >
-                <Layers className="h-4 w-4" />
+                <Layers className="h-3.5 w-3.5" />
                 Projects
               </Link>
               <Link
-                href="/findings"
-                className="px-3 py-1.5 text-sm font-medium text-slate-300 hover:text-cyan-400 hover:bg-slate-800/50 rounded-lg transition-colors flex items-center gap-2"
+                href="/tests"
+                className="px-2.5 py-1.5 text-xs font-medium text-slate-300 hover:text-cyan-400 hover:bg-slate-800/50 rounded-lg transition-colors flex items-center gap-1.5"
               >
-                <Bug className="h-4 w-4" />
-                AI Findings
+                <FileCode2 className="h-3.5 w-3.5 text-cyan-400" />
+                Tests
+              </Link>
+              <Link
+                href="/suites"
+                className="px-2.5 py-1.5 text-xs font-medium text-slate-300 hover:text-cyan-400 hover:bg-slate-800/50 rounded-lg transition-colors flex items-center gap-1.5"
+              >
+                <Play className="h-3.5 w-3.5 text-purple-400" />
+                Suites
+              </Link>
+              <Link
+                href="/failures"
+                className="px-2.5 py-1.5 text-xs font-medium text-slate-300 hover:text-rose-400 hover:bg-slate-800/50 rounded-lg transition-colors flex items-center gap-1.5"
+              >
+                <Bug className="h-3.5 w-3.5 text-rose-400" />
+                Failures
               </Link>
               <Link
                 href="/security"
-                className="px-3 py-1.5 text-sm font-medium text-emerald-300 hover:text-emerald-400 hover:bg-emerald-950/40 border border-emerald-900/40 rounded-lg transition-colors flex items-center gap-2"
+                className="px-2.5 py-1.5 text-xs font-medium text-emerald-300 hover:text-emerald-400 hover:bg-emerald-950/40 border border-emerald-900/40 rounded-lg transition-colors flex items-center gap-1.5"
               >
-                <Shield className="h-4 w-4 text-emerald-400" />
-                AppSec Posture
+                <Shield className="h-3.5 w-3.5 text-emerald-400" />
+                Security
               </Link>
               <Link
-                href="/settings/team"
-                className="px-3 py-1.5 text-sm font-medium text-slate-300 hover:text-cyan-400 hover:bg-slate-800/50 rounded-lg transition-colors flex items-center gap-2"
+                href="/coverage"
+                className="px-2.5 py-1.5 text-xs font-medium text-slate-300 hover:text-cyan-400 hover:bg-slate-800/50 rounded-lg transition-colors flex items-center gap-1.5"
               >
-                <Users className="h-4 w-4" />
-                Team & RBAC
+                Coverage
               </Link>
               <Link
-                href="/settings/api-keys"
-                className="px-3 py-1.5 text-sm font-medium text-slate-300 hover:text-cyan-400 hover:bg-slate-800/50 rounded-lg transition-colors flex items-center gap-2"
+                href="/environments"
+                className="px-2.5 py-1.5 text-xs font-medium text-slate-300 hover:text-cyan-400 hover:bg-slate-800/50 rounded-lg transition-colors flex items-center gap-1.5"
               >
-                <Key className="h-4 w-4" />
-                API Keys
+                Envs
+              </Link>
+              <Link
+                href="/schedules"
+                className="px-2.5 py-1.5 text-xs font-medium text-slate-300 hover:text-cyan-400 hover:bg-slate-800/50 rounded-lg transition-colors flex items-center gap-1.5"
+              >
+                Schedules
+              </Link>
+              <Link
+                href="/reports"
+                className="px-2.5 py-1.5 text-xs font-medium text-slate-300 hover:text-cyan-400 hover:bg-slate-800/50 rounded-lg transition-colors flex items-center gap-1.5"
+              >
+                Reports
+              </Link>
+              <Link
+                href="/usage"
+                className="px-2.5 py-1.5 text-xs font-medium text-slate-300 hover:text-cyan-400 hover:bg-slate-800/50 rounded-lg transition-colors flex items-center gap-1.5"
+              >
+                Usage
               </Link>
               <Link
                 href="/settings/mcp"
-                className="px-3 py-1.5 text-sm font-medium text-cyan-300 bg-cyan-950/40 border border-cyan-800/50 hover:bg-cyan-900/40 rounded-lg transition-colors flex items-center gap-2"
+                className="px-2.5 py-1.5 text-xs font-medium text-cyan-300 bg-cyan-950/40 border border-cyan-800/50 hover:bg-cyan-900/40 rounded-lg transition-colors flex items-center gap-1.5"
               >
-                <Terminal className="h-4 w-4 text-cyan-400" />
-                MCP Hub
+                <Terminal className="h-3.5 w-3.5 text-cyan-400" />
+                MCP
               </Link>
             </nav>
 

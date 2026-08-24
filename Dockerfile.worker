@@ -11,7 +11,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY package*.json ./
 COPY packages/ ./packages/
 COPY apps/worker/ ./apps/worker/
-COPY tsconfig*.json ./
+COPY tsconfig.base.json ./
+COPY tsconfig.json ./
 
 RUN npm ci
 

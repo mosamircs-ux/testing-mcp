@@ -1,0 +1,17 @@
+node_modules
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.next
+.turbo
+dist
+build
+.git
+.gitignore
+.env*.local
+*.log
+coverage
+playwright-report
+test-results
+data
+.gemini

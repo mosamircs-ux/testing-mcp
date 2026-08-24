@@ -11,7 +11,8 @@ RUN apk add --no-cache libc6-compat python3 make g++
 COPY package*.json ./
 COPY packages/ ./packages/
 COPY apps/api/ ./apps/api/
-COPY tsconfig*.json ./
+COPY tsconfig.base.json ./
+COPY tsconfig.json ./
 
 # Install dependencies across all packages
 RUN npm ci

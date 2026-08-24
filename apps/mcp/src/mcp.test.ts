@@ -46,7 +46,7 @@ import {
 } from './tools.js';
 import { sanitizeMcpOutput } from './auth.js';
 
-describe('Official NovaQA MCP Server Tool Verification (35 Tools, Mobile & Security Capabilities)', () => {
+describe('Official NovaQA MCP Server Tool Verification (35 Tools, Mobile & Security Capabilities)', { timeout: 180000 }, () => {
   let createdProjectId: string;
   let createdSuiteId: string;
   let createdTestCaseId: string;

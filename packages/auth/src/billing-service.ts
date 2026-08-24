@@ -15,9 +15,6 @@ export class BillingService {
    * Seeds default dynamic plans into the database if not present.
    */
   async seedDefaultPlans(): Promise<void> {
-    const existingCount = await prisma.plan.count();
-    if (existingCount >= 6) return;
-
     const defaultPlans = [
       {
         slug: PlanSlug.FREE,
@@ -35,7 +32,12 @@ export class BillingService {
           maxMobileMinutes: 0,
           maxStorageGb: 1,
           maxArtifacts: 200,
-          maxTeamMembers: 2
+          maxTeamMembers: 2,
+          retentionDays: 7,
+          securityTesting: 'None',
+          ciCd: 'Manual & Webhook Triggers',
+          mcp: 'Community (Core Tools)',
+          support: 'Community Discord'
         } satisfies PlanLimits),
         features: ['1 Parallel Worker Sandbox', 'Community Discord Support', 'Basic Test Catalog']
       },
@@ -44,7 +46,7 @@ export class BillingService {
         name: 'Starter Tier',
         description: 'For growing startup teams launching autonomous testing.',
         priceMonthly: 2900, // $29.00
-        priceYearly: 29000, // $290.00 (2 months free)
+        priceYearly: 29000, // $290.00 (2 months free, saves $58/yr)
         currency: 'USD',
         limits: JSON.stringify({
           maxProjects: 5,
@@ -55,7 +57,12 @@ export class BillingService {
           maxMobileMinutes: 60,
           maxStorageGb: 10,
           maxArtifacts: 2000,
-          maxTeamMembers: 5
+          maxTeamMembers: 5,
+          retentionDays: 30,
+          securityTesting: 'Basic Vulnerability Checks',
+          ciCd: 'GitHub Actions & GitLab CI',
+          mcp: 'Full MCP Server (35 Tools)',
+          support: 'Standard Email (< 24h)'
         } satisfies PlanLimits),
         features: ['4 Parallel Sandboxes', 'AI Failure Diagnostics', 'Standard Email Support']
       },
@@ -64,7 +71,7 @@ export class BillingService {
         name: 'Professional Tier',
         description: 'For agile engineering teams with continuous CI/CD releases.',
         priceMonthly: 7900, // $79.00
-        priceYearly: 79000, // $790.00
+        priceYearly: 79000, // $790.00 (2 months free, saves $158/yr)
         currency: 'USD',
         limits: JSON.stringify({
           maxProjects: 15,
@@ -75,7 +82,12 @@ export class BillingService {
           maxMobileMinutes: 300,
           maxStorageGb: 50,
           maxArtifacts: 10000,
-          maxTeamMembers: 15
+          maxTeamMembers: 15,
+          retentionDays: 90,
+          securityTesting: 'OWASP Top 10 Defensive DAST',
+          ciCd: 'Quality Gates, CLI & Pre-merge Blocking',
+          mcp: 'Full MCP Server + Custom Tooling',
+          support: 'Priority Email & Slack (< 4h)'
         } satisfies PlanLimits),
         features: ['12 Parallel Sandboxes', 'Self-Healing Selectors', 'Visual Regression', 'Slack Alerts']
       },
@@ -84,7 +96,7 @@ export class BillingService {
         name: 'Team Collaborative Tier',
         description: 'For multi-squad QA departments scaling cross-platform suites.',
         priceMonthly: 19900, // $199.00
-        priceYearly: 199000, // $1,990.00
+        priceYearly: 199000, // $1,990.00 (2 months free, saves $398/yr)
         currency: 'USD',
         limits: JSON.stringify({
           maxProjects: 30,
@@ -95,7 +107,12 @@ export class BillingService {
           maxMobileMinutes: 1000,
           maxStorageGb: 150,
           maxArtifacts: 30000,
-          maxTeamMembers: 30
+          maxTeamMembers: 30,
+          retentionDays: 180,
+          securityTesting: 'Advanced Continuous AppSec Suite',
+          ciCd: 'Parallel Grid Orchestration & Quality Gates',
+          mcp: 'Full MCP Server + High-Concurrency Agents',
+          support: 'Dedicated Slack & Priority SLA (< 2h)'
         } satisfies PlanLimits),
         features: ['24 Parallel Sandboxes', 'Defensive SAST/DAST Engine', 'Android & iOS Emulators', 'Priority SLA']
       },
@@ -104,7 +121,7 @@ export class BillingService {
         name: 'Business Enterprise Tier',
         description: 'For enterprise organizations with compliance and high throughput.',
         priceMonthly: 49900, // $499.00
-        priceYearly: 499000, // $4,990.00
+        priceYearly: 499000, // $4,990.00 (2 months free, saves $998/yr)
         currency: 'USD',
         limits: JSON.stringify({
           maxProjects: 100,
@@ -115,7 +132,12 @@ export class BillingService {
           maxMobileMinutes: 5000,
           maxStorageGb: 500,
           maxArtifacts: 100000,
-          maxTeamMembers: 100
+          maxTeamMembers: 100,
+          retentionDays: 365,
+          securityTesting: 'Full DAST/SAST + Custom RBAC Probes',
+          ciCd: 'Enterprise Pipeline Quality Gate Matrix',
+          mcp: 'Multi-Agent Distributed MCP Bridge',
+          support: '24/7 Priority Support & TAM (< 1h)'
         } satisfies PlanLimits),
         features: ['48 Parallel Sandboxes', 'Full MCP Server Bridge', 'Dedicated Support Engineer', 'Custom Webhooks']
       },
@@ -124,7 +146,7 @@ export class BillingService {
         name: 'Enterprise Dedicated Tier',
         description: 'Custom infrastructure, unlimited scaling, and tailored SLA.',
         priceMonthly: 99900, // $999.00
-        priceYearly: 999000, // $9,990.00
+        priceYearly: 999000, // $9,990.00 (2 months free, saves $1,998/yr)
         currency: 'USD',
         limits: JSON.stringify({
           maxProjects: -1, // Unlimited
@@ -135,7 +157,12 @@ export class BillingService {
           maxMobileMinutes: -1,
           maxStorageGb: 5000,
           maxArtifacts: -1,
-          maxTeamMembers: -1
+          maxTeamMembers: -1,
+          retentionDays: -1,
+          securityTesting: 'Dedicated AppSec Scanner + Custom Compliance',
+          ciCd: 'Private Runner Grids + Custom Webhooks',
+          mcp: 'Dedicated Private MCP Infrastructure',
+          support: '24/7 Phone, Dedicated Solution Architect & 99.99% SLA'
         } satisfies PlanLimits),
         features: ['Unlimited Sandboxes', 'On-Premise Private Runners', 'SOC2 / HIPAA Compliance', 'Custom MSA']
       }

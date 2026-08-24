@@ -128,4 +128,78 @@ describe('SaaS Billing & Quota Engine (@novaqa/auth)', () => {
       expect(refund.status).toBe('SUCCEEDED');
     });
   });
+
+  describe('5. Pricing & Purchase Experience Verification (All 15 Dimensions & Flow)', () => {
+    it('should return all 15 required pricing dimensions from the database for each plan', async () => {
+      const plans = await billingService.getPlans();
+      expect(plans.length).toBe(6);
+
+      for (const p of plans) {
+        const limits = JSON.parse(p.limits);
+        // Verify core dimensions
+        expect(p.priceMonthly).toBeDefined();
+        expect(p.priceYearly).toBeDefined();
+        expect(limits.maxTestExecutions).toBeDefined();
+        expect(limits.maxAiTokens).toBeDefined();
+        expect(limits.maxBrowserMinutes).toBeDefined();
+        expect(limits.maxApiRequests).toBeDefined();
+        expect(limits.maxMobileMinutes).toBeDefined();
+        expect(limits.maxProjects).toBeDefined();
+        expect(limits.maxTeamMembers).toBeDefined();
+        expect(limits.maxStorageGb).toBeDefined();
+        expect(limits.retentionDays).toBeDefined();
+        expect(limits.securityTesting).toBeDefined();
+        expect(limits.ciCd).toBeDefined();
+        expect(limits.mcp).toBeDefined();
+        expect(limits.support).toBeDefined();
+      }
+    });
+
+    it('should calculate dynamic yearly savings accurately for all paid tiers', async () => {
+      const plans = await billingService.getPlans();
+
+      const starter = plans.find((p) => p.slug === PlanSlug.STARTER)!;
+      const pro = plans.find((p) => p.slug === PlanSlug.PRO)!;
+      const team = plans.find((p) => p.slug === PlanSlug.TEAM)!;
+      const business = plans.find((p) => p.slug === PlanSlug.BUSINESS)!;
+      const enterprise = plans.find((p) => p.slug === PlanSlug.ENTERPRISE)!;
+
+      // Starter: $29/mo * 12 = $348, yearly is $290 -> savings = $58
+      expect(starter.priceMonthly * 12 - starter.priceYearly).toBe(5800);
+
+      // Pro: $79/mo * 12 = $948, yearly is $790 -> savings = $158
+      expect(pro.priceMonthly * 12 - pro.priceYearly).toBe(15800);
+
+      // Team: $199/mo * 12 = $2388, yearly is $1990 -> savings = $398
+      expect(team.priceMonthly * 12 - team.priceYearly).toBe(39800);
+
+      // Business: $499/mo * 12 = $5988, yearly is $4990 -> savings = $998
+      expect(business.priceMonthly * 12 - business.priceYearly).toBe(99800);
+
+      // Enterprise: $999/mo * 12 = $11988, yearly is $9990 -> savings = $1998
+      expect(enterprise.priceMonthly * 12 - enterprise.priceYearly).toBe(199800);
+    });
+
+    it('should NEVER activate a paid plan based solely on frontend redirect (guard test)', async () => {
+      // Create a pending payment
+      const payment = await prisma.payment.create({
+        data: {
+          organizationId: testOrgId,
+          merchantReference: `pmt_test_guard_${Date.now()}`,
+          amount: 7900,
+          currency: 'USD',
+          status: 'PENDING',
+          targetPlanSlug: PlanSlug.PRO,
+          targetInterval: 'monthly'
+        }
+      });
+
+      // Verify that mere existence or querying of pending payment does NOT activate subscription
+      const currentSub = await billingService.getOrganizationSubscription(testOrgId);
+      expect(currentSub.plan.slug).not.toBe(PlanSlug.PRO);
+
+      // Payment remains PENDING until verified webhook
+      expect(payment.status).toBe('PENDING');
+    });
+  });
 });

@@ -1,12 +1,48 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { billingService, PlanSlug, BillingInterval } from '@novaqa/auth';
+import { prisma } from '@novaqa/database';
 import { authMiddleware, requirePermission } from '../middleware/auth';
 import { z } from 'zod';
 import { BadRequestError, NotFoundError } from '@novaqa/shared';
 
 export const billingRouter = Router();
 
-// Apply auth middleware to billing routes
+// ============================================================================
+// 1. Public Plans Endpoints (Accessible publicly for landing page, pricing, and checkout)
+// ============================================================================
+
+// List all active dynamic plans from database
+const handleGetPlans = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const plans = await billingService.getPlans();
+    res.json({ success: true, data: plans });
+  } catch (err) {
+    next(err);
+  }
+};
+
+billingRouter.get('/api/v1/plans', handleGetPlans);
+billingRouter.get('/api/v1/billing/plans', handleGetPlans);
+
+// Get single plan by slug
+billingRouter.get('/api/v1/plans/:slug', async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const slug = String(req.params.slug).toUpperCase() as PlanSlug;
+    await billingService.seedDefaultPlans();
+    const plan = await prisma.plan.findUnique({
+      where: { slug },
+      include: { features: true }
+    });
+    if (!plan) {
+      throw new NotFoundError('Plan', slug);
+    }
+    res.json({ success: true, data: plan });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// Apply auth middleware to subsequent tenant billing routes
 billingRouter.use(authMiddleware);
 
 const ChangeSubscriptionSchema = z.object({
@@ -36,20 +72,6 @@ const IssueRefundSchema = z.object({
   paymentId: z.string(),
   amount: z.number().positive(),
   reason: z.string()
-});
-
-// ============================================================================
-// 1. Plans (Publicly listable by authenticated tenants, configurable by admin)
-// ============================================================================
-
-// List all dynamic plans
-billingRouter.get('/api/v1/billing/plans', async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-  try {
-    const plans = await billingService.getPlans();
-    res.json({ success: true, data: plans });
-  } catch (err) {
-    next(err);
-  }
 });
 
 // Admin update plan pricing & limits in database
@@ -113,6 +135,25 @@ billingRouter.post(
       const input = ChangeSubscriptionSchema.parse(req.body);
       const updated = await billingService.changeSubscription(orgId, input.planSlug, input.interval as BillingInterval);
       res.json({ success: true, message: `Successfully updated plan to ${input.planSlug}`, data: updated });
+    } catch (err) {
+      next(err);
+    }
+  }
+);
+
+// Activate Free Community Tier directly (zero cost)
+billingRouter.post(
+  '/api/v1/billing/activate-free',
+  requirePermission('billing.manage'),
+  async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const orgId = req.auth!.organizationId;
+      const updated = await billingService.changeSubscription(orgId, PlanSlug.FREE, 'monthly');
+      res.json({
+        success: true,
+        message: 'Free Community Tier activated successfully',
+        data: updated
+      });
     } catch (err) {
       next(err);
     }

@@ -762,14 +762,14 @@ export default function SaaSMainLandingPage() {
                 </div>
 
                 <Link
-                  href="/register"
+                  href={`/checkout?plan=${plan.slug}&interval=${billingInterval}`}
                   className={`w-full py-2.5 text-xs font-bold rounded-lg transition flex items-center justify-center gap-2 ${
                     plan.isPopular
                       ? 'bg-gradient-to-r from-cyan-500 to-accent-500 text-slate-950 hover:brightness-110 shadow-glow'
                       : 'bg-slate-800 hover:bg-slate-700 text-white'
                   }`}
                 >
-                  Start Testing
+                  {plan.priceMonthly === 0 ? 'Start Free Community' : `Select ${plan.name.replace(' Tier', '')} →`}
                 </Link>
               </div>
             );

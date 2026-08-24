@@ -21,6 +21,11 @@ export interface PlanLimits {
   maxStorageGb: number;
   maxArtifacts: number;
   maxTeamMembers: number;
+  retentionDays?: number; // e.g. 7, 30, 90, 180, 365, -1
+  securityTesting?: string; // 'None', 'Basic DAST', 'OWASP Top 10 DAST', etc.
+  ciCd?: string; // 'Manual & Webhooks', 'GitHub Actions & CLI', etc.
+  mcp?: string; // 'Community', 'Full MCP Server (35 Tools)', etc.
+  support?: string; // 'Community Discord', 'Standard Email', 'Priority SLA', etc.
 }
 
 export interface DimensionUsage {

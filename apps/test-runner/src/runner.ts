@@ -3,7 +3,7 @@ import { PlaywrightEngine } from '@novaqa/browser';
 import { ApiTestEngine } from '@novaqa/api-testing';
 import { MobileTestEngine } from '@novaqa/mobile-testing';
 import { ExecutionContext, ExecutionTelemetryEvent, TestEngine } from '@novaqa/testing';
-import { FailureAnalyzer } from '@novaqa/ai';
+import { FailureAnalyzer, AutoHealer, fixProposalEngine, verificationEngine } from '@novaqa/ai';
 import { storage, createChildLogger } from '@novaqa/shared';
 import {
   TestRunStatus,
@@ -20,6 +20,7 @@ const log = createChildLogger('test-runner');
 
 export class TestExecutionOrchestrator {
   private failureAnalyzer = new FailureAnalyzer();
+  private autoHealer = new AutoHealer();
   private activeContexts = new Map<string, ExecutionContext>();
   private activeEngines = new Map<string, TestEngine>();
   private telemetryListeners = new Map<string, Set<(event: ExecutionTelemetryEvent) => void>>();
@@ -246,12 +247,12 @@ export class TestExecutionOrchestrator {
               stepLogs: context.logs
             });
 
-            await prisma.finding.create({
+            const finding = await prisma.finding.create({
               data: {
                 testRunId: run.id,
                 testResultId: dbResult.id,
                 projectId: run.projectId,
-                category: isFlaky ? FindingCategory.FLAKY_TEST : triage.category,
+                category: isFlaky ? FindingCategory.TEST_FLAKINESS : triage.category,
                 severity: isFlaky ? FindingSeverity.LOW : triage.severity,
                 status: FindingStatus.OPEN,
                 title: isFlaky ? `Flaky Test Detected: ${tc.title}` : triage.title,
@@ -261,9 +262,31 @@ export class TestExecutionOrchestrator {
                 rootCauseAnalysis: triage.rootCauseAnalysis,
                 suggestedFix: triage.suggestedFix,
                 suggestedPatch: triage.suggestedPatch,
-                autoHealSelector: triage.autoHealSelector
+                autoHealSelector: triage.autoHealSelector,
+                confidence: triage.confidence,
+                evidence: JSON.stringify(triage.evidence),
+                affectedFiles: JSON.stringify(triage.affectedFiles),
+                affectedCode: JSON.stringify(triage.affectedCode),
+                regressionRisk: triage.regressionRisk
               }
             });
+
+            // Automated Self-Healing (for eligible non-semantic test maintenance only)
+            if (triage.isSelfHealEligible && tc.autoHealEnabled && triage.autoHealSelector) {
+              await this.autoHealer.applySelfHeal(finding.id, tc.id, {
+                type: triage.selfHealType || 'SELECTOR_UPDATE',
+                targetCaseId: tc.id,
+                originalValue: tc.title,
+                healedValue: triage.autoHealSelector,
+                confidence: triage.confidence,
+                explanation: triage.suggestedFix,
+                patchDiff: triage.suggestedPatch || undefined,
+                safeToAutoApply: true
+              });
+            } else if (!triage.isSelfHealEligible) {
+              // For genuine product bugs: generate a proposed patch requiring explicit approval
+              await fixProposalEngine.generateFixProposal(finding.id).catch(() => {});
+            }
           } catch (triageErr) {
             log.error({ triageErr }, 'Failed to generate AI finding for failed/flaky test');
           }

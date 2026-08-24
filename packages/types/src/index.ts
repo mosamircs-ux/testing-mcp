@@ -101,18 +101,33 @@ export enum FindingSeverity {
 }
 
 export enum FindingCategory {
-  BUG = 'BUG',
-  FLAKY_TEST = 'FLAKY_TEST',
-  REGRESSION = 'REGRESSION',
-  SPEC_DRIFT = 'SPEC_DRIFT',
-  PERFORMANCE = 'PERFORMANCE',
-  SECURITY = 'SECURITY'
+  REAL_BUG = 'REAL_BUG',
+  TEST_FLAKINESS = 'TEST_FLAKINESS',
+  SELECTOR_DRIFT = 'SELECTOR_DRIFT',
+  TIMING_ISSUE = 'TIMING_ISSUE',
+  NETWORK_ISSUE = 'NETWORK_ISSUE',
+  ENVIRONMENT_ISSUE = 'ENVIRONMENT_ISSUE',
+  DATA_ISSUE = 'DATA_ISSUE',
+  AUTHENTICATION_ISSUE = 'AUTHENTICATION_ISSUE',
+  PERMISSION_ISSUE = 'PERMISSION_ISSUE',
+  UNKNOWN = 'UNKNOWN',
+  // Backward-compatibility aliases
+  BUG = 'REAL_BUG',
+  FLAKY_TEST = 'TEST_FLAKINESS',
+  REGRESSION = 'REAL_BUG',
+  SPEC_DRIFT = 'SELECTOR_DRIFT',
+  PERFORMANCE = 'TIMING_ISSUE',
+  SECURITY = 'PERMISSION_ISSUE'
 }
 
 export enum FindingStatus {
   OPEN = 'OPEN',
   TRIAGED = 'TRIAGED',
   AUTO_HEALED = 'AUTO_HEALED',
+  FIX_PROPOSED = 'FIX_PROPOSED',
+  FIX_APPROVED = 'FIX_APPROVED',
+  VERIFICATION_RUNNING = 'VERIFICATION_RUNNING',
+  VERIFICATION_FAILED = 'VERIFICATION_FAILED',
   RESOLVED = 'RESOLVED',
   IGNORED = 'IGNORED'
 }
@@ -443,6 +458,56 @@ export interface TestStepResult {
   domArtifactId?: string;
 }
 
+export interface FailureEvidence {
+  failedStep?: {
+    order: number;
+    action: string;
+    target?: string;
+    value?: string;
+    expectedOutput?: string;
+    error?: string;
+  };
+  screenshotUrls?: string[];
+  domSnapshotSnippet?: string;
+  consoleErrors?: Array<{ level: string; message: string; timestamp?: string }>;
+  networkFailures?: Array<{ url: string; method: string; status: number; durationMs?: number; error?: string }>;
+  apiResponses?: Array<{ url: string; method: string; status: number; bodySnippet?: string; durationMs?: number }>;
+  stackTrace?: string;
+  applicationLogs?: string[];
+  historicalFlakinessScore?: number;
+  recentRunHistory?: Array<{ runId: string; status: string; durationMs: number; timestamp: string }>;
+  codebaseSnippet?: string;
+}
+
+export type SelfHealType =
+  | 'SELECTOR_UPDATE'
+  | 'WAIT_STRATEGY'
+  | 'LOCATOR_IMPROVEMENT'
+  | 'RETRY_TUNING'
+  | 'NON_SEMANTIC_MAINTENANCE';
+
+export interface SelfHealAction {
+  type: SelfHealType;
+  targetCaseId: string;
+  stepOrder?: number;
+  originalValue: string;
+  healedValue: string;
+  confidence: number;
+  explanation: string;
+  patchDiff?: string;
+  safeToAutoApply: boolean;
+}
+
+export interface FixHistoryEntry {
+  id?: string;
+  timestamp: string;
+  action: 'PROPOSED' | 'APPROVED' | 'AUTO_APPLIED' | 'APPLIED' | 'VERIFICATION_STARTED' | 'VERIFIED' | 'VERIFICATION_FAILED' | 'ROLLED_BACK';
+  actor: string; // User email, User ID, or 'AI_SELF_HEALER'
+  details: string;
+  patchDiff?: string;
+  verificationRunId?: string;
+}
+
 export interface Finding {
   id: string;
   testRunId: string;
@@ -457,9 +522,30 @@ export interface Finding {
   suggestedFix?: string | null;
   suggestedPatch?: string | null;
   autoHealSelector?: string | null;
+  confidence?: number | null;
+  evidence?: FailureEvidence | string | null;
+  affectedFiles?: string[] | string | null;
+  affectedCode?: string[] | string | null;
+  regressionRisk?: 'HIGH' | 'MEDIUM' | 'LOW' | null;
+  fixApproved?: boolean;
+  fixAppliedAt?: Date | null;
+  verificationRunId?: string | null;
+  fixHistory?: FixHistoryEntry[] | string | null;
   rawLogExcerpt?: string | null;
   createdAt: Date;
   updatedAt: Date;
+}
+
+export interface SelfHealLog {
+  id: string;
+  findingId: string;
+  testCaseId: string;
+  healType: SelfHealType | string;
+  originalValue: string;
+  healedValue: string;
+  confidence: number;
+  appliedAt: Date;
+  verificationStatus: 'PENDING' | 'PASSED' | 'FAILED' | 'ROLLED_BACK';
 }
 
 export interface Artifact {
@@ -974,19 +1060,70 @@ export const AIGenerateTestsSchema = z.object({
 
 export const AIFailureTriageSchema = z.object({
   testResultId: z.string().min(1),
+  testCaseId: z.string().optional(),
+  testRunId: z.string().optional(),
+  projectId: z.string().optional(),
   errorMessage: z.string(),
   stackTrace: z.string().optional(),
   stepLogs: z.array(z.string()).optional(),
   domSnapshot: z.string().optional(),
-  networkCalls: z.array(z.record(z.unknown())).optional()
+  consoleOutput: z.array(
+    z.object({
+      level: z.string(),
+      message: z.string(),
+      timestamp: z.string().optional()
+    })
+  ).optional(),
+  networkCalls: z.array(z.record(z.unknown())).optional(),
+  apiResponses: z.array(
+    z.object({
+      url: z.string(),
+      method: z.string(),
+      status: z.number(),
+      body: z.string().optional(),
+      durationMs: z.number().optional()
+    })
+  ).optional(),
+  screenshotUrls: z.array(z.string()).optional(),
+  previousRunResults: z.array(
+    z.object({
+      runId: z.string(),
+      status: z.string(),
+      durationMs: z.number(),
+      timestamp: z.string()
+    })
+  ).optional(),
+  applicationLogs: z.array(z.string()).optional(),
+  codebaseContext: z.string().optional(),
+  failedStepDetails: z.object({
+    order: z.number(),
+    action: z.string(),
+    target: z.string().optional(),
+    value: z.string().optional(),
+    expectedOutput: z.string().optional()
+  }).optional()
 });
 
 export const AIAutoHealSchema = z.object({
   testCaseId: z.string().min(1),
-  failedStepOrder: z.number(),
+  findingId: z.string().optional(),
+  failedStepOrder: z.number().optional(),
   failedSelector: z.string(),
   currentDomSnapshot: z.string(),
   errorMessage: z.string()
+});
+
+export const ApproveFixSchema = z.object({
+  findingId: z.string().min(1),
+  autoApply: z.boolean().default(true),
+  patchOverride: z.string().optional(),
+  notes: z.string().optional()
+});
+
+export const VerifyFixSchema = z.object({
+  findingId: z.string().min(1),
+  scope: z.enum(['FAILED_TEST_ONLY', 'RELATED_SUITE', 'FULL_REGRESSION']).default('FULL_REGRESSION'),
+  environmentId: z.string().optional()
 });
 
 // ============================================================================
@@ -1024,3 +1161,5 @@ export type AIAnalyzeProjectInput = z.infer<typeof AIAnalyzeProjectSchema>;
 export type AIGenerateTestsInput = z.infer<typeof AIGenerateTestsSchema>;
 export type AIFailureTriageInput = z.infer<typeof AIFailureTriageSchema>;
 export type AIAutoHealInput = z.infer<typeof AIAutoHealSchema>;
+export type ApproveFixInput = z.infer<typeof ApproveFixSchema>;
+export type VerifyFixInput = z.infer<typeof VerifyFixSchema>;

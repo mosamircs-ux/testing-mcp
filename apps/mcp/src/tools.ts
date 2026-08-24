@@ -229,10 +229,16 @@ export async function handleAnalyzeFailures(args: { runId: string }) {
               id: f.id,
               category: f.category,
               severity: f.severity,
+              status: f.status,
               title: f.title,
               rootCause: f.rootCauseAnalysis,
+              confidence: f.confidence,
+              regressionRisk: f.regressionRisk,
               suggestedFix: f.suggestedFix,
-              suggestedPatch: f.suggestedPatch
+              suggestedPatch: f.suggestedPatch,
+              autoHealSelector: f.autoHealSelector,
+              affectedFiles: f.affectedFiles ? (typeof f.affectedFiles === 'string' ? JSON.parse(f.affectedFiles) : f.affectedFiles) : [],
+              fixHistory: f.fixHistory ? (typeof f.fixHistory === 'string' ? JSON.parse(f.fixHistory) : f.fixHistory) : []
             }))
           },
           null,
@@ -263,3 +269,26 @@ export async function handleAutoHealTest(args: { testCaseId: string; failedSelec
     content: [{ type: 'text', text: JSON.stringify(result, null, 2) }]
   };
 }
+
+export async function handleApproveFix(args: { findingId: string; patchOverride?: string; notes?: string }) {
+  const { fixProposalEngine } = await import('@novaqa/ai');
+  const result = await fixProposalEngine.approveFix(args.findingId, {
+    actor: 'MCP_AGENT',
+    patchOverride: args.patchOverride,
+    notes: args.notes || 'Approved by MCP Agent'
+  });
+  return {
+    content: [{ type: 'text', text: JSON.stringify(result, null, 2) }]
+  };
+}
+
+export async function handleVerifyFix(args: { findingId: string; scope?: 'FAILED_TEST_ONLY' | 'RELATED_SUITE' | 'FULL_REGRESSION' }) {
+  const { verificationEngine } = await import('@novaqa/ai');
+  const result = await verificationEngine.verifyFix(args.findingId, {
+    scope: args.scope || 'FULL_REGRESSION'
+  });
+  return {
+    content: [{ type: 'text', text: JSON.stringify(result, null, 2) }]
+  };
+}
+

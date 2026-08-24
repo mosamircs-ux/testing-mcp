@@ -257,6 +257,7 @@ model TestCase {
   suite           TestSuite      @relation(fields: [suiteId], references: [id], onDelete: Cascade)
   steps           TestCaseStep[]
   results         TestResult[]
+  selfHealLogs    SelfHealLog[]
   createdAt       DateTime       @default(now())
   updatedAt       DateTime       @updatedAt
 }
@@ -318,25 +319,49 @@ model TestResult {
 }
 
 model Finding {
-  id                 String     @id @default(cuid())
+  id                 String        @id @default(cuid())
   testRunId          String
   testResultId       String
   projectId          String
-  category           String     @default("BUG")
-  severity           String     @default("HIGH")
-  status             String     @default("OPEN")
+  category           String        @default("REAL_BUG")
+  severity           String        @default("HIGH")
+  status             String        @default("OPEN")
   title              String
   description        String
   rootCauseAnalysis  String
   suggestedFix       String?
   suggestedPatch     String?
   autoHealSelector   String?
+  confidence         Float?
+  evidence           String?
+  affectedFiles      String?
+  affectedCode       String?
+  regressionRisk     String?
+  fixApproved        Boolean       @default(false)
+  fixAppliedAt       DateTime?
+  verificationRunId  String?
+  fixHistory         String?
   rawLogExcerpt      String?
-  testRun            TestRun    @relation(fields: [testRunId], references: [id], onDelete: Cascade)
-  testResult         TestResult @relation(fields: [testResultId], references: [id], onDelete: Cascade)
-  project            Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  createdAt          DateTime   @default(now())
-  updatedAt          DateTime   @updatedAt
+  selfHealLogs       SelfHealLog[]
+  testRun            TestRun       @relation(fields: [testRunId], references: [id], onDelete: Cascade)
+  testResult         TestResult    @relation(fields: [testResultId], references: [id], onDelete: Cascade)
+  project            Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+}
+
+model SelfHealLog {
+  id                 String   @id @default(cuid())
+  findingId          String
+  testCaseId         String
+  healType           String
+  originalValue      String
+  healedValue        String
+  confidence         Float
+  appliedAt          DateTime @default(now())
+  verificationStatus String   @default("PENDING")
+  finding            Finding  @relation(fields: [findingId], references: [id], onDelete: Cascade)
+  testCase           TestCase @relation(fields: [testCaseId], references: [id], onDelete: Cascade)
 }
 
 model Artifact {

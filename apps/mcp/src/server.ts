@@ -16,7 +16,9 @@ import {
   handleExecuteTestRun,
   handleGetTestRunStatus,
   handleAnalyzeFailures,
-  handleAutoHealTest
+  handleAutoHealTest,
+  handleApproveFix,
+  handleVerifyFix
 } from './tools.js';
 import { prisma } from '@novaqa/database';
 import { createChildLogger } from '@novaqa/shared';
@@ -134,6 +136,31 @@ export function createMcpServer() {
             },
             required: ['testCaseId', 'failedSelector']
           }
+        },
+        {
+          name: 'nova_approve_fix',
+          description: 'Explicitly approve a proposed AI code fix patch for application and verification.',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              findingId: { type: 'string' },
+              patchOverride: { type: 'string' },
+              notes: { type: 'string' }
+            },
+            required: ['findingId']
+          }
+        },
+        {
+          name: 'nova_verify_fix',
+          description: 'Execute the 4-stage fix verification pipeline (rerun failed -> related -> regression) before resolving a finding.',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              findingId: { type: 'string' },
+              scope: { type: 'string', enum: ['FAILED_TEST_ONLY', 'RELATED_SUITE', 'FULL_REGRESSION'] }
+            },
+            required: ['findingId']
+          }
         }
       ]
     };
@@ -162,6 +189,10 @@ export function createMcpServer() {
           return await handleAnalyzeFailures(args as any);
         case 'nova_auto_heal_test':
           return await handleAutoHealTest(args as any);
+        case 'nova_approve_fix':
+          return await handleApproveFix(args as any);
+        case 'nova_verify_fix':
+          return await handleVerifyFix(args as any);
         default:
           throw new Error(`Unknown tool: ${name}`);
       }

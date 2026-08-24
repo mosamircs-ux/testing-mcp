@@ -189,14 +189,73 @@ export class AIClient {
       };
       content = JSON.stringify(parsed, null, 2);
     } else if (req.userPrompt.includes('triage_failure') || req.userPrompt.includes('analyze_failure')) {
+      let category = 'REAL_BUG';
+      let title = 'Unhandled 500 NullReference in Application Code';
+      let rca = 'The API returned an unexpected null payload, causing runtime TypeError.';
+      let fix = 'Add null-safe chaining operator and validate required fields.';
+      let patch: string | null = `--- a/src/components/PaymentForm.tsx\n+++ b/src/components/PaymentForm.tsx\n@@ -24,3 +24,3 @@\n-  const zip = address.postalCode.trim();\n+  const zip = address?.postalCode?.trim() || '';`;
+      let autoHealSelector: string | null = null;
+
+      const errMatch = req.userPrompt.match(/ErrorMessage: ([^\n]+)/i);
+      const pLower = (errMatch ? errMatch[1] : req.userPrompt).toLowerCase();
+
+      if (pLower.includes('selector') || pLower.includes('locator')) {
+        category = 'SELECTOR_DRIFT';
+        title = 'Selector Drift: Element Locator Broken';
+        rca = 'Target DOM selector renamed or removed in rendered markup.';
+        fix = 'Update test step to use resilient semantic locator [data-testid="submit-order"].';
+        autoHealSelector = '[data-testid="submit-order"]';
+        patch = `--- a/test.spec.ts\n+++ b/test.spec.ts\n- await page.click('button#submit-order-legacy');\n+ await page.click('[data-testid="submit-order"]');`;
+      } else if (pLower.includes('timeout') || pLower.includes('timing')) {
+        category = 'TIMING_ISSUE';
+        title = 'Asynchronous Render Timeout / Timing Race Condition';
+        rca = 'Operation exceeded allotted time before the browser reached the required state.';
+        fix = 'Replace static timeout with explicit waitForSelector.';
+        patch = null;
+      } else if (pLower.includes('forbidden') || pLower.includes('403') || pLower.includes('permission') || pLower.includes('lacks')) {
+        category = 'PERMISSION_ISSUE';
+        title = 'Authorization & RBAC Permission Violation (HTTP 403)';
+        rca = 'The test execution attempted an action forbidden for the authenticated role.';
+        fix = 'Verify role permissions and RBAC policy.';
+        patch = null;
+      } else if (pLower.includes('unauthorized') || pLower.includes('401') || pLower.includes('token') || pLower.includes('jwt')) {
+        category = 'AUTHENTICATION_ISSUE';
+        title = 'Authentication Credentials Expired or Invalid (HTTP 401)';
+        rca = 'The endpoint rejected request due to missing or expired authentication tokens.';
+        fix = 'Ensure session token rotation lifecycle is executed before calling protected endpoints.';
+        patch = null;
+      } else if (pLower.includes('econnrefused') || pLower.includes('enotfound') || pLower.includes('502') || pLower.includes('503') || pLower.includes('fetch failed')) {
+        category = 'NETWORK_ISSUE';
+        title = 'Network Connection Refused or Gateway Unreachable';
+        rca = 'Target host could not be reached over network.';
+        fix = 'Verify target service is running and ports are open.';
+        patch = null;
+      } else if (pLower.includes('validation') || pLower.includes('zod') || pLower.includes('schema') || pLower.includes('data')) {
+        category = 'DATA_ISSUE';
+        title = 'Database Constraint or Input Validation Schema Mismatch';
+        rca = 'Payload or database entity violated schema constraints.';
+        fix = 'Verify pre-condition database seeding and validate required input attributes.';
+        patch = null;
+      } else if (pLower.includes('500') || pLower.includes('null') || pLower.includes('typeerror') || pLower.includes('assertion')) {
+        category = 'REAL_BUG';
+        title = 'Unhandled 500 NullReference in Application Code';
+        rca = 'The API returned an unexpected null payload, causing runtime TypeError.';
+        fix = 'Add null-safe chaining operator and validate required fields.';
+        patch = `--- a/src/components/PaymentForm.tsx\n+++ b/src/components/PaymentForm.tsx\n@@ -24,3 +24,3 @@\n-  const zip = address.postalCode.trim();\n+  const zip = address?.postalCode?.trim() || '';`;
+      }
+
       parsed = {
-        category: 'BUG',
+        category,
         severity: 'HIGH',
-        title: 'Unhandled 500 NullReference in Checkout Payment Hook',
-        rootCauseAnalysis: 'The API returned an unexpected null billingAddress payload when guest checkout was selected, causing the client-side payment component to throw an uncaught TypeError.',
-        suggestedFix: 'Add null-safe chaining operator (order.billingAddress?.postalCode) and validate required billing address fields before submitting payment payload.',
-        suggestedPatch: `--- a/src/components/PaymentForm.tsx\n+++ b/src/components/PaymentForm.tsx\n@@ -24,3 +24,3 @@\n-  const zip = address.postalCode.trim();\n+  const zip = address?.postalCode?.trim() || '';`,
-        autoHealSelector: null
+        title,
+        rootCauseAnalysis: rca,
+        suggestedFix: fix,
+        suggestedPatch: patch,
+        autoHealSelector,
+        confidence: 0.94,
+        affectedFiles: ['src/components/PaymentForm.tsx'],
+        affectedCode: ['const zip = address.postalCode;'],
+        regressionRisk: 'HIGH'
       };
       content = JSON.stringify(parsed, null, 2);
     } else {

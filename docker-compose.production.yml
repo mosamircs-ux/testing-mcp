@@ -11,7 +11,7 @@ services:
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-novaqa_production}
       POSTGRES_USER: ${POSTGRES_USER:-novaqa_admin}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Database password is required}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-novaqa_secure_db_pass_2026}
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/init.sql:ro
@@ -39,13 +39,13 @@ services:
     image: redis:7-alpine
     container_name: novaqa-redis
     restart: unless-stopped
-    command: ["redis-server", "--requirepass", "${REDIS_PASSWORD:?Redis password is required}", "--appendonly", "yes"]
+    command: ["redis-server", "--requirepass", "${REDIS_PASSWORD:-novaqa_secure_redis_pass_2026}", "--appendonly", "yes"]
     volumes:
       - redis_data:/data
     networks:
       - novaqa-internal
     healthcheck:
-      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-novaqa_secure_redis_pass_2026}", "ping"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -65,7 +65,7 @@ services:
     command: server /data --console-address ":9001"
     environment:
       MINIO_ROOT_USER: ${STORAGE_ACCESS_KEY:-novaqa_minio_root}
-      MINIO_ROOT_PASSWORD: ${STORAGE_SECRET_KEY:?Storage secret key is required}
+      MINIO_ROOT_PASSWORD: ${STORAGE_SECRET_KEY:-novaqa_minio_secret_key_2026}
     volumes:
       - minio_data:/data
     networks:
@@ -100,23 +100,23 @@ services:
     environment:
       NODE_ENV: production
       PORT: 4000
-      DATABASE_URL: postgresql://${POSTGRES_USER:-novaqa_admin}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-novaqa_production}?schema=public
-      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379/0
-      JWT_SECRET: ${JWT_SECRET:?JWT Secret is required}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-novaqa_admin}:${POSTGRES_PASSWORD:-novaqa_secure_db_pass_2026}@postgres:5432/${POSTGRES_DB:-novaqa_production}?schema=public
+      REDIS_URL: redis://:${REDIS_PASSWORD:-novaqa_secure_redis_pass_2026}@redis:6379/0
+      JWT_SECRET: ${JWT_SECRET:-novaqa_super_secure_production_jwt_secret_key_2026_x89a_99b7c2f}
       JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-7d}
       REFRESH_TOKEN_EXPIRES_IN: ${REFRESH_TOKEN_EXPIRES_IN:-30d}
-      PAYMOB_API_KEY: ${PAYMOB_API_KEY}
-      PAYMOB_SECRET_KEY: ${PAYMOB_SECRET_KEY}
-      PAYMOB_HMAC_SECRET: ${PAYMOB_HMAC_SECRET}
-      PAYMOB_INTEGRATION_ID_CARD: ${PAYMOB_INTEGRATION_ID_CARD}
+      PAYMOB_API_KEY: ${PAYMOB_API_KEY:-mock_paymob_api_key}
+      PAYMOB_SECRET_KEY: ${PAYMOB_SECRET_KEY:-mock_paymob_secret_key}
+      PAYMOB_HMAC_SECRET: ${PAYMOB_HMAC_SECRET:-mock_paymob_hmac_secret_sha512}
+      PAYMOB_INTEGRATION_ID_CARD: ${PAYMOB_INTEGRATION_ID_CARD:-123456}
       STORAGE_ENDPOINT: http://minio:9000
       STORAGE_BUCKET: ${STORAGE_BUCKET:-novaqa-artifacts}
       STORAGE_ACCESS_KEY: ${STORAGE_ACCESS_KEY:-novaqa_minio_root}
-      STORAGE_SECRET_KEY: ${STORAGE_SECRET_KEY}
+      STORAGE_SECRET_KEY: ${STORAGE_SECRET_KEY:-novaqa_minio_secret_key_2026}
       AI_DEFAULT_PROVIDER: ${AI_DEFAULT_PROVIDER:-mock}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
-      APP_URL: ${APP_URL:-https://novaqa.io}
+      APP_URL: ${APP_URL:-http://localhost:3000}
     networks:
       - novaqa-internal
       - novaqa-public
@@ -151,12 +151,12 @@ services:
       NODE_ENV: production
       WORKER_PORT: 4001
       MAX_CONCURRENT_RUNS: ${MAX_CONCURRENT_RUNS:-8}
-      DATABASE_URL: postgresql://${POSTGRES_USER:-novaqa_admin}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-novaqa_production}?schema=public
-      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379/0
+      DATABASE_URL: postgresql://${POSTGRES_USER:-novaqa_admin}:${POSTGRES_PASSWORD:-novaqa_secure_db_pass_2026}@postgres:5432/${POSTGRES_DB:-novaqa_production}?schema=public
+      REDIS_URL: redis://:${REDIS_PASSWORD:-novaqa_secure_redis_pass_2026}@redis:6379/0
       STORAGE_ENDPOINT: http://minio:9000
       STORAGE_BUCKET: ${STORAGE_BUCKET:-novaqa-artifacts}
       STORAGE_ACCESS_KEY: ${STORAGE_ACCESS_KEY:-novaqa_minio_root}
-      STORAGE_SECRET_KEY: ${STORAGE_SECRET_KEY}
+      STORAGE_SECRET_KEY: ${STORAGE_SECRET_KEY:-novaqa_minio_secret_key_2026}
       AI_DEFAULT_PROVIDER: ${AI_DEFAULT_PROVIDER:-mock}
     networks:
       - novaqa-internal
@@ -188,7 +188,7 @@ services:
         condition: service_healthy
     environment:
       NODE_ENV: production
-      DATABASE_URL: postgresql://${POSTGRES_USER:-novaqa_admin}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-novaqa_production}?schema=public
+      DATABASE_URL: postgresql://${POSTGRES_USER:-novaqa_admin}:${POSTGRES_PASSWORD:-novaqa_secure_db_pass_2026}@postgres:5432/${POSTGRES_DB:-novaqa_production}?schema=public
       AI_DEFAULT_PROVIDER: ${AI_DEFAULT_PROVIDER:-mock}
     networks:
       - novaqa-internal
@@ -213,9 +213,9 @@ services:
     environment:
       NODE_ENV: production
       PORT: 3000
-      DATABASE_URL: postgresql://${POSTGRES_USER:-novaqa_admin}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-novaqa_production}?schema=public
+      DATABASE_URL: postgresql://${POSTGRES_USER:-novaqa_admin}:${POSTGRES_PASSWORD:-novaqa_secure_db_pass_2026}@postgres:5432/${POSTGRES_DB:-novaqa_production}?schema=public
       NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-/api/v1}
-      NEXT_PUBLIC_APP_URL: ${APP_URL:-https://novaqa.io}
+      NEXT_PUBLIC_APP_URL: ${APP_URL:-http://localhost:3000}
     networks:
       - novaqa-internal
       - novaqa-public

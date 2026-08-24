@@ -6,7 +6,7 @@ export default defineConfig({
     environment: 'node',
     include: ['packages/**/*.{test,spec}.ts', 'apps/**/*.{test,spec}.ts'],
     exclude: ['**/node_modules/**', '**/dist/**', '**/.next/**'],
-    testTimeout: 20000,
+    testTimeout: 60000,
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'html'],

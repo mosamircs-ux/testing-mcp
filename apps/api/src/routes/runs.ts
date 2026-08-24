@@ -1,7 +1,9 @@
 import { Router } from 'express';
 import { prisma } from '@novaqa/database';
 import { TriggerTestRunSchema, TestRunStatus } from '@novaqa/types';
+import { orchestrator } from '@novaqa/test-runner';
 import { workerQueue } from '@novaqa/worker';
+import { ExecutionTelemetryEvent } from '@novaqa/testing';
 import { JUnitReporter, MarkdownReporter } from '@novaqa/reporting';
 import { NotFoundError, ForbiddenError } from '@novaqa/shared';
 import { authMiddleware, requirePermission, requireProjectAccess } from '../middleware/auth';
@@ -135,12 +137,64 @@ runsRouter.post('/api/v1/runs/:id/cancel', requirePermission('run.cancel'), asyn
 
     if (!run) throw new NotFoundError('TestRun', id);
 
-    const updated = await prisma.testRun.update({
-      where: { id },
-      data: { status: TestRunStatus.CANCELLED, completedAt: new Date() }
+    // Trigger immediate cancellation on active execution context and worker
+    await workerQueue.cancelJob(id, req.body?.reason || 'Cancelled by user');
+
+    const updated = await prisma.testRun.findUnique({
+      where: { id }
     });
 
-    res.json({ success: true, data: updated });
+    res.json({ success: true, message: 'Test run cancelled successfully', data: updated });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// 4.1 Restart Test Run (re-queues and triggers fresh execution)
+runsRouter.post('/api/v1/runs/:id/restart', requirePermission('run.execute'), async (req, res, next) => {
+  try {
+    const id = String(req.params.id);
+    const originalRun = await prisma.testRun.findFirst({
+      where: {
+        id,
+        project: { organizationId: req.auth!.organizationId }
+      },
+      include: {
+        suite: { include: { testCases: true } }
+      }
+    });
+
+    if (!originalRun) throw new NotFoundError('TestRun', id);
+
+    // Cancel existing active run if still running
+    await workerQueue.cancelJob(id, 'Restarted by user').catch(() => {});
+
+    // Create fresh test run
+    const newRun = await prisma.testRun.create({
+      data: {
+        projectId: originalRun.projectId,
+        suiteId: originalRun.suiteId,
+        environmentId: originalRun.environmentId,
+        triggeredById: req.auth?.userId,
+        triggerSource: 'MANUAL',
+        status: TestRunStatus.QUEUED,
+        totalTests: originalRun.suite?.testCases.length || originalRun.totalTests || 0
+      }
+    });
+
+    // Dispatch to background queue worker
+    workerQueue.dispatchTestRun(newRun.id).catch(() => {});
+
+    res.status(201).json({
+      success: true,
+      message: 'Test run restarted successfully',
+      data: {
+        oldRunId: id,
+        newRunId: newRun.id,
+        status: newRun.status,
+        streamUrl: `/api/v1/runs/${newRun.id}/stream`
+      }
+    });
   } catch (err) {
     next(err);
   }
@@ -170,6 +224,14 @@ runsRouter.get('/api/v1/runs/:id/stream', async (req, res, next) => {
 
     res.write(`data: ${JSON.stringify({ type: 'CONNECTED', runId, timestamp: new Date().toISOString() })}\n\n`);
 
+    // 1. Subscribe to Live Orchestrator Telemetry Events
+    const unsubscribe = orchestrator.subscribeTelemetry(runId, (event) => {
+      try {
+        res.write(`data: ${JSON.stringify(event)}\n\n`);
+      } catch {}
+    });
+
+    // 2. Periodic Database Polling Heartbeat
     const interval = setInterval(async () => {
       const currentRun = await prisma.testRun.findUnique({
         where: { id: runId },
@@ -178,6 +240,7 @@ runsRouter.get('/api/v1/runs/:id/stream', async (req, res, next) => {
 
       if (!currentRun) {
         clearInterval(interval);
+        unsubscribe();
         res.end();
         return;
       }
@@ -188,21 +251,25 @@ runsRouter.get('/api/v1/runs/:id/stream', async (req, res, next) => {
           status: currentRun.status,
           passedTests: currentRun.passedTests,
           failedTests: currentRun.failedTests,
+          skippedTests: currentRun.skippedTests,
           totalTests: currentRun.totalTests,
           durationMs: currentRun.durationMs,
-          resultsCount: currentRun.results.length
+          resultsCount: currentRun.results.length,
+          timestamp: new Date().toISOString()
         })}\n\n`
       );
 
-      if (['PASSED', 'FAILED', 'CANCELLED', 'TIMED_OUT'].includes(currentRun.status)) {
+      if (['PASSED', 'FAILED', 'CANCELLED', 'TIMED_OUT', 'BLOCKED', 'FLAKY'].includes(currentRun.status)) {
         res.write(`data: ${JSON.stringify({ type: 'RUN_FINISHED', status: currentRun.status })}\n\n`);
         clearInterval(interval);
+        unsubscribe();
         res.end();
       }
-    }, 1000);
+    }, 1500);
 
     req.on('close', () => {
       clearInterval(interval);
+      unsubscribe();
     });
   } catch (err) {
     next(err);

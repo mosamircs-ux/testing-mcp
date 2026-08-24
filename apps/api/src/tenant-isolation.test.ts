@@ -269,14 +269,24 @@ describe('SaaS Authentication & Tenant Isolation Security Tests', () => {
     });
 
     it('VIEWER cannot trigger a test run (returns 403 Forbidden)', async () => {
-      const env = await prisma.environment.findFirst({ where: { projectId: acmeProjectId } });
+      let env = await prisma.environment.findFirst({ where: { projectId: acmeProjectId } });
+      if (!env) {
+        env = await prisma.environment.create({
+          data: {
+            projectId: acmeProjectId,
+            name: 'Staging',
+            slug: `staging-${Date.now()}`,
+            baseUrl: 'http://localhost:3000'
+          }
+        });
+      }
 
       const res = await request(app)
         .post('/api/v1/runs')
         .set('Authorization', `Bearer ${acmeViewerToken}`)
         .send({
           projectId: acmeProjectId,
-          environmentId: env!.id
+          environmentId: env.id
         });
 
       expect(res.status).toBe(403);
@@ -308,14 +318,24 @@ describe('SaaS Authentication & Tenant Isolation Security Tests', () => {
     });
 
     it('QA_ENGINEER can trigger a test run', async () => {
-      const env = await prisma.environment.findFirst({ where: { projectId: acmeProjectId } });
+      let env = await prisma.environment.findFirst({ where: { projectId: acmeProjectId } });
+      if (!env) {
+        env = await prisma.environment.create({
+          data: {
+            projectId: acmeProjectId,
+            name: 'Staging',
+            slug: `staging-${Date.now()}`,
+            baseUrl: 'http://localhost:3000'
+          }
+        });
+      }
 
       const res = await request(app)
         .post('/api/v1/runs')
         .set('Authorization', `Bearer ${acmeQaToken}`)
         .send({
           projectId: acmeProjectId,
-          environmentId: env!.id
+          environmentId: env.id
         });
 
       expect(res.status).toBe(202);

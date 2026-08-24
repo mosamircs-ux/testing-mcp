@@ -73,14 +73,21 @@ export enum TestRunStatus {
   RUNNING = 'RUNNING',
   PASSED = 'PASSED',
   FAILED = 'FAILED',
+  BLOCKED = 'BLOCKED',
+  SKIPPED = 'SKIPPED',
   CANCELLED = 'CANCELLED',
+  FLAKY = 'FLAKY',
   TIMED_OUT = 'TIMED_OUT'
 }
 
 export enum TestResultStatus {
+  QUEUED = 'QUEUED',
+  RUNNING = 'RUNNING',
   PASSED = 'PASSED',
   FAILED = 'FAILED',
+  BLOCKED = 'BLOCKED',
   SKIPPED = 'SKIPPED',
+  CANCELLED = 'CANCELLED',
   FLAKY = 'FLAKY',
   TIMED_OUT = 'TIMED_OUT'
 }
@@ -114,10 +121,47 @@ export enum ArtifactType {
   SCREENSHOT = 'SCREENSHOT',
   VIDEO = 'VIDEO',
   DOM_SNAPSHOT = 'DOM_SNAPSHOT',
+  ACCESSIBILITY_SNAPSHOT = 'ACCESSIBILITY_SNAPSHOT',
   NETWORK_HAR = 'NETWORK_HAR',
   CONSOLE_LOG = 'CONSOLE_LOG',
   EXECUTION_TRACE = 'EXECUTION_TRACE',
-  API_RESPONSE = 'API_RESPONSE'
+  API_RESPONSE = 'API_RESPONSE',
+  TIMING_METRICS = 'TIMING_METRICS'
+}
+
+export type BrowserType = 'chromium' | 'firefox' | 'webkit';
+
+export interface ViewportConfig {
+  width: number;
+  height: number;
+  isMobile?: boolean;
+  hasTouch?: boolean;
+  deviceScaleFactor?: number;
+}
+
+export interface NetworkTimingMetrics {
+  dnsLookupMs?: number;
+  tcpHandshakeMs?: number;
+  tlsNegotiationMs?: number;
+  timeToFirstByteMs: number;
+  totalDurationMs: number;
+  requestBodySize?: number;
+  responseBodySize?: number;
+}
+
+export interface NetworkInterceptionEntry {
+  id: string;
+  url: string;
+  method: string;
+  resourceType: string;
+  status: number;
+  requestHeaders: Record<string, string>;
+  responseHeaders: Record<string, string>;
+  durationMs: number;
+  requestBody?: string;
+  responseBody?: string;
+  failed?: boolean;
+  failureText?: string;
 }
 
 export enum SubscriptionTier {
@@ -320,12 +364,39 @@ export interface TestCase {
 }
 
 export interface TestCaseStep {
-  id: string;
+  id?: string;
+  testCaseId?: string;
   order: number;
-  action: 'NAVIGATE' | 'CLICK' | 'TYPE' | 'ASSERT' | 'HOVER' | 'SCROLL' | 'REQUEST' | 'WAIT';
+  action:
+    | 'NAVIGATE'
+    | 'GOTO'
+    | 'CLICK'
+    | 'DBLCLICK'
+    | 'TYPE'
+    | 'FILL'
+    | 'CHECK'
+    | 'UNCHECK'
+    | 'SELECT'
+    | 'SELECT_OPTION'
+    | 'ASSERT'
+    | 'ASSERTION'
+    | 'HOVER'
+    | 'SCROLL'
+    | 'PRESS'
+    | 'KEYPRESS'
+    | 'DRAG'
+    | 'DRAG_AND_DROP'
+    | 'REQUEST'
+    | 'GRAPHQL'
+    | 'HTTP'
+    | 'EXTRACT'
+    | 'WAIT'
+    | 'WAIT_FOR'
+    | 'SCREENSHOT'
+    | string;
   target?: string;
   value?: string;
-  description: string;
+  description?: string;
   expectedOutput?: string;
 }
 

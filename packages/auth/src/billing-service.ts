@@ -476,7 +476,7 @@ export class BillingService {
   /**
    * Grants account credits.
    */
-  async grantCredit(organizationId: string, amount: number, reason: string) {
+  async grantCredit(organizationId: string, amount: number, reason: string = 'Courtesy credit') {
     return prisma.credit.create({
       data: {
         organizationId,

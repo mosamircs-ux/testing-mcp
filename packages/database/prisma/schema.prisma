@@ -48,6 +48,7 @@ model Organization {
   name           String
   slug           String               @unique
   tier           String               @default("FREE")
+  status         String               @default("ACTIVE") // ACTIVE, SUSPENDED
   members        OrganizationMember[]
   teams          Team[]
   projects       Project[]
@@ -440,17 +441,17 @@ model McpSession {
 }
 
 model AuditLog {
-  id             String       @id @default(cuid())
-  organizationId String
+  id             String        @id @default(cuid())
+  organizationId String?
   userId         String?
   action         String
   resourceType   String
   resourceId     String
-  payload        String       @default("{}")
+  payload        String        @default("{}")
   ipAddress      String?
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  user           User?        @relation(fields: [userId], references: [id], onDelete: SetNull)
-  createdAt      DateTime     @default(now())
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user           User?         @relation(fields: [userId], references: [id], onDelete: SetNull)
+  createdAt      DateTime      @default(now())
 }
 
 // ============================================================================
@@ -550,19 +551,30 @@ model Invoice {
 }
 
 model Payment {
-  id              String         @id @default(cuid())
-  organizationId  String
-  invoiceId       String?
-  paymentMethodId String?
-  amount          Int            @default(0) // in cents
-  currency        String         @default("USD")
-  status          String         @default("SUCCEEDED") // PENDING, SUCCEEDED, FAILED
-  errorMessage    String?
-  organization    Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  invoice         Invoice?       @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
-  paymentMethod   PaymentMethod? @relation(fields: [paymentMethodId], references: [id], onDelete: SetNull)
-  refunds         Refund[]
-  createdAt       DateTime       @default(now())
+  id                  String         @id @default(cuid())
+  organizationId      String
+  invoiceId           String?
+  paymentMethodId     String?
+  merchantReference   String?        @unique
+  paymobIntentionId   String?
+  paymobTransactionId String?
+  clientSecret        String?
+  checkoutUrl         String?
+  amount              Int            @default(0) // in cents / smallest currency unit
+  currency            String         @default("USD")
+  status              String         @default("PENDING") // PENDING, SUCCEEDED, FAILED, CANCELLED, EXPIRED, REFUNDED, VOIDED
+  targetPlanSlug      String?
+  targetInterval      String?        @default("monthly")
+  rawWebhookPayload   String?        @default("{}")
+  verificationResult  String?        @default("{}")
+  reconciledAt        DateTime?
+  errorMessage        String?
+  organization        Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  invoice             Invoice?       @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
+  paymentMethod       PaymentMethod? @relation(fields: [paymentMethodId], references: [id], onDelete: SetNull)
+  refunds             Refund[]
+  createdAt           DateTime       @default(now())
+  updatedAt           DateTime       @default(now()) @updatedAt
 }
 
 model PaymentMethod {
@@ -622,4 +634,15 @@ model Refund {
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   payment        Payment?     @relation(fields: [paymentId], references: [id], onDelete: SetNull)
   createdAt      DateTime     @default(now())
+}
+
+model FeatureFlag {
+  id          String   @id @default(cuid())
+  key         String   @unique // e.g. "AI_SELF_HEALING", "MOBILE_EMULATORS", "DAST_SCANNER", "PARALLEL_EXECUTION"
+  name        String
+  description String?
+  isEnabled   Boolean  @default(true)
+  rules       String   @default("{}") // JSON rules for targeting
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @default(now()) @updatedAt
 }

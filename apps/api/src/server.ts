@@ -15,6 +15,8 @@ import securityRouter from './routes/security';
 import { reportsRouter } from './routes/reports';
 import { ciCdRouter } from './routes/ci-cd';
 import { billingRouter } from './routes/billing';
+import { paymentsRouter } from './routes/payments';
+import { adminRouter } from './routes/admin';
 import { errorHandler } from './middleware/error-handler';
 import { logger } from '@novaqa/shared';
 
@@ -51,6 +53,8 @@ export function createServer() {
   app.use(reportsRouter);
   app.use(ciCdRouter);
   app.use(billingRouter);
+  app.use(paymentsRouter);
+  app.use(adminRouter);
   app.use('/api/v1/security', securityRouter);
 
   // Global Error Handler

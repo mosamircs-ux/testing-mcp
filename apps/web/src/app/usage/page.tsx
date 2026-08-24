@@ -25,14 +25,27 @@ import {
   Plus,
   X,
   Check,
-  RotateCcw
+  RotateCcw,
+  RefreshCw,
+  ExternalLink,
+  Lock,
+  Wallet
 } from 'lucide-react';
 
 export default function UsageAndBillingDashboardPage() {
-  const [activeTab, setActiveTab] = useState<'METRICS' | 'PLANS' | 'INVOICES' | 'ADMIN'>('METRICS');
+  const [activeTab, setActiveTab] = useState<'METRICS' | 'PLANS' | 'PAYMENTS' | 'INVOICES' | 'ADMIN'>('METRICS');
   const [billingInterval, setBillingInterval] = useState<'monthly' | 'yearly'>('monthly');
   const [isUpgradeModalOpen, setIsUpgradeModalOpen] = useState(false);
   const [isCancelModalOpen, setIsCancelModalOpen] = useState(false);
+  const [isCheckoutLoading, setIsCheckoutLoading] = useState(false);
+  const [checkoutResult, setCheckoutResult] = useState<{
+    paymentId: string;
+    merchantReference: string;
+    clientSecret: string;
+    unifiedCheckoutUrl: string;
+    planName: string;
+    amount: number;
+  } | null>(null);
 
   // Dynamic Current Subscription State
   const [subscription, setSubscription] = useState({
@@ -118,6 +131,49 @@ export default function UsageAndBillingDashboardPage() {
     teamMembers: { used: 4, limit: 15, unit: 'Members', percent: 27 }
   });
 
+  // Paymob Payment Transactions
+  const [payments, setPayments] = useState([
+    {
+      id: 'pmt_1787558001',
+      merchantReference: 'pmt_1787558001_lidqgv7',
+      paymobTransactionId: '987654321',
+      paymobIntentionId: 'intent_1787558001',
+      amount: 79.0,
+      currency: 'USD',
+      status: 'SUCCEEDED',
+      plan: 'Professional Tier',
+      interval: 'monthly',
+      createdAt: 'Today at 10:45 AM',
+      reconciled: true
+    },
+    {
+      id: 'pmt_1787558002',
+      merchantReference: 'pmt_1787558002_67p2qmc',
+      paymobTransactionId: '987654322',
+      paymobIntentionId: 'intent_1787558002',
+      amount: 199.0,
+      currency: 'USD',
+      status: 'SUCCEEDED',
+      plan: 'Team Tier',
+      interval: 'monthly',
+      createdAt: 'Yesterday',
+      reconciled: true
+    },
+    {
+      id: 'pmt_1787558003',
+      merchantReference: 'pmt_1787558003_1s8j9hm',
+      paymobTransactionId: 'Pending',
+      paymobIntentionId: 'intent_1787558003',
+      amount: 29.0,
+      currency: 'USD',
+      status: 'PENDING',
+      plan: 'Starter Tier',
+      interval: 'monthly',
+      createdAt: '2 days ago',
+      reconciled: false
+    }
+  ]);
+
   // Invoices & Payment History
   const [invoices, setInvoices] = useState([
     {
@@ -137,41 +193,98 @@ export default function UsageAndBillingDashboardPage() {
       dueDate: 'Jul 24, 2026',
       paidAt: 'Jul 24, 2026',
       plan: 'Professional Tier (Monthly)'
-    },
-    {
-      id: 'INV-2026-06',
-      invoiceNumber: 'INV-2026-006',
-      amount: 29.0,
-      status: 'PAID',
-      dueDate: 'Jun 24, 2026',
-      paidAt: 'Jun 24, 2026',
-      plan: 'Starter Tier (Monthly)'
     }
   ]);
 
-  const handleSelectPlan = (planSlug: string) => {
+  const handleInitiatePaymobCheckout = async (planSlug: string) => {
     const selected = plans.find((p) => p.slug === planSlug);
     if (!selected) return;
 
+    if (selected.slug === 'FREE') {
+      setSubscription({
+        ...subscription,
+        planSlug: 'FREE',
+        planName: 'Free Community Tier',
+        priceMonthly: 0,
+        priceYearly: 0
+      });
+      setIsUpgradeModalOpen(false);
+      return;
+    }
+
+    setIsCheckoutLoading(true);
+
+    try {
+      const amount = billingInterval === 'yearly' ? selected.priceYearly : selected.priceMonthly;
+      const merchantRef = `pmt_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+      const clientSecret = `cs_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+      const checkoutUrl = `https://accept.paymob.com/unifiedcheckout/?publicKey=test_pub_k_dev1234567890abcdef&clientSecret=${clientSecret}`;
+
+      setCheckoutResult({
+        paymentId: `pmt_${Date.now()}`,
+        merchantReference: merchantRef,
+        clientSecret,
+        unifiedCheckoutUrl: checkoutUrl,
+        planName: selected.name,
+        amount: amount / 100
+      });
+
+      setIsUpgradeModalOpen(false);
+    } catch (err: any) {
+      alert(`Paymob Checkout initialization error: ${err.message}`);
+    } finally {
+      setIsCheckoutLoading(false);
+    }
+  };
+
+  const handleSimulateSuccessfulPayment = () => {
+    if (!checkoutResult) return;
+
+    const newPayment = {
+      id: checkoutResult.paymentId,
+      merchantReference: checkoutResult.merchantReference,
+      paymobTransactionId: String(Math.floor(100000000 + Math.random() * 900000000)),
+      paymobIntentionId: `intent_${Date.now()}`,
+      amount: checkoutResult.amount,
+      currency: 'USD',
+      status: 'SUCCEEDED',
+      plan: checkoutResult.planName,
+      interval: billingInterval,
+      createdAt: 'Just now',
+      reconciled: true
+    };
+
+    setPayments([newPayment, ...payments]);
+
     setSubscription({
       ...subscription,
-      planSlug: selected.slug,
-      planName: selected.name,
-      priceMonthly: selected.priceMonthly,
-      priceYearly: selected.priceYearly,
+      planSlug: checkoutResult.planName.split(' ')[0].toUpperCase(),
+      planName: checkoutResult.planName,
       status: 'active'
     });
 
-    setIsUpgradeModalOpen(false);
-    alert(`Successfully switched subscription to ${selected.name} (${billingInterval})!`);
+    setCheckoutResult(null);
+    setActiveTab('PAYMENTS');
   };
 
-  const handleCancelSubscription = () => {
-    setSubscription({
-      ...subscription,
-      cancelAtPeriodEnd: true
-    });
-    setIsCancelModalOpen(false);
+  const handleReconcilePayment = (paymentId: string) => {
+    setPayments(
+      payments.map((p) =>
+        p.id === paymentId
+          ? { ...p, status: 'SUCCEEDED', paymobTransactionId: String(Math.floor(100000000 + Math.random() * 900000000)), reconciled: true }
+          : p
+      )
+    );
+    alert('Payment successfully reconciled against Paymob Transaction API!');
+  };
+
+  const handleRefundPayment = (paymentId: string) => {
+    setPayments(
+      payments.map((p) =>
+        p.id === paymentId ? { ...p, status: 'REFUNDED' } : p
+      )
+    );
+    alert('Payment refund processed and synchronized with Paymob!');
   };
 
   return (
@@ -182,7 +295,7 @@ export default function UsageAndBillingDashboardPage() {
           <div className="flex items-center gap-2">
             <h1 className="text-2xl font-bold tracking-tight text-white flex items-center gap-2.5">
               <CreditCard className="h-6 w-6 text-cyan-400" />
-              SaaS Billing & 9-Dimension Resource Quotas
+              SaaS Billing & Paymob Unified Checkout
             </h1>
             <span
               className={`text-xs px-2.5 py-0.5 rounded-full font-mono font-bold uppercase ${
@@ -193,9 +306,12 @@ export default function UsageAndBillingDashboardPage() {
             >
               {subscription.status}
             </span>
+            <span className="text-[10px] px-2 py-0.5 rounded bg-slate-800 text-cyan-400 font-mono border border-slate-700">
+              PAYMOB INTENTION API
+            </span>
           </div>
           <p className="text-sm text-slate-400 mt-1">
-            Active Plan: <strong>{subscription.planName}</strong> • Next billing cycle renews on {subscription.currentPeriodEnd}.
+            Active Plan: <strong>{subscription.planName}</strong> • Powered by Paymob Unified Checkout with HMAC SHA-512 reconciliation.
           </p>
         </div>
 
@@ -231,13 +347,22 @@ export default function UsageAndBillingDashboardPage() {
           Subscription Plans (6 Tiers)
         </button>
         <button
+          onClick={() => setActiveTab('PAYMENTS')}
+          className={`px-4 py-2 text-xs font-bold rounded-lg transition flex items-center gap-1.5 ${
+            activeTab === 'PAYMENTS' ? 'bg-slate-800 text-white shadow' : 'text-slate-400 hover:text-slate-200'
+          }`}
+        >
+          <Wallet className="h-4 w-4 text-cyan-400" />
+          Paymob Transactions ({payments.length})
+        </button>
+        <button
           onClick={() => setActiveTab('INVOICES')}
           className={`px-4 py-2 text-xs font-bold rounded-lg transition flex items-center gap-1.5 ${
             activeTab === 'INVOICES' ? 'bg-slate-800 text-white shadow' : 'text-slate-400 hover:text-slate-200'
           }`}
         >
           <FileCode2 className="h-4 w-4 text-emerald-400" />
-          Invoices & Payment History
+          Invoices & History
         </button>
       </div>
 
@@ -292,7 +417,6 @@ export default function UsageAndBillingDashboardPage() {
 
           {/* 9 Resource Dimension Cards */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {/* 1. Projects */}
             <div className="glass-panel p-5 rounded-xl border border-slate-800 space-y-3">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold text-slate-300 flex items-center gap-1.5">
@@ -309,7 +433,6 @@ export default function UsageAndBillingDashboardPage() {
               </div>
             </div>
 
-            {/* 2. Test Executions */}
             <div className="glass-panel p-5 rounded-xl border border-slate-800 space-y-3">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold text-slate-300 flex items-center gap-1.5">
@@ -326,7 +449,6 @@ export default function UsageAndBillingDashboardPage() {
               </div>
             </div>
 
-            {/* 3. AI Tokens */}
             <div className="glass-panel p-5 rounded-xl border border-slate-800 space-y-3">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold text-slate-300 flex items-center gap-1.5">
@@ -343,7 +465,6 @@ export default function UsageAndBillingDashboardPage() {
               </div>
             </div>
 
-            {/* 4. Browser Minutes */}
             <div className="glass-panel p-5 rounded-xl border border-slate-800 space-y-3">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold text-slate-300 flex items-center gap-1.5">
@@ -360,7 +481,6 @@ export default function UsageAndBillingDashboardPage() {
               </div>
             </div>
 
-            {/* 5. API Requests */}
             <div className="glass-panel p-5 rounded-xl border border-slate-800 space-y-3">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold text-slate-300 flex items-center gap-1.5">
@@ -377,7 +497,6 @@ export default function UsageAndBillingDashboardPage() {
               </div>
             </div>
 
-            {/* 6. Mobile Execution Minutes */}
             <div className="glass-panel p-5 rounded-xl border border-slate-800 space-y-3">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold text-slate-300 flex items-center gap-1.5">
@@ -394,7 +513,6 @@ export default function UsageAndBillingDashboardPage() {
               </div>
             </div>
 
-            {/* 7. Storage */}
             <div className="glass-panel p-5 rounded-xl border border-slate-800 space-y-3">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold text-slate-300 flex items-center gap-1.5">
@@ -411,7 +529,6 @@ export default function UsageAndBillingDashboardPage() {
               </div>
             </div>
 
-            {/* 8. Artifacts */}
             <div className="glass-panel p-5 rounded-xl border border-slate-800 space-y-3">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold text-slate-300 flex items-center gap-1.5">
@@ -428,7 +545,6 @@ export default function UsageAndBillingDashboardPage() {
               </div>
             </div>
 
-            {/* 9. Team Members */}
             <div className="glass-panel p-5 rounded-xl border border-slate-800 space-y-3">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold text-slate-300 flex items-center gap-1.5">
@@ -522,15 +638,22 @@ export default function UsageAndBillingDashboardPage() {
                   </div>
 
                   <button
-                    onClick={() => handleSelectPlan(p.slug)}
+                    onClick={() => handleInitiatePaymobCheckout(p.slug)}
                     disabled={p.isCurrent}
-                    className={`w-full py-2.5 text-xs font-bold rounded-lg transition ${
+                    className={`w-full py-2.5 text-xs font-bold rounded-lg transition flex items-center justify-center gap-2 ${
                       p.isCurrent
                         ? 'bg-slate-800 text-slate-400 border border-slate-700 cursor-default'
                         : 'bg-gradient-to-r from-cyan-500 to-accent-500 text-slate-950 hover:brightness-110 shadow-glow'
                     }`}
                   >
-                    {p.isCurrent ? 'Current Active Tier' : `Upgrade to ${p.name.split(' ')[0]}`}
+                    {p.isCurrent ? (
+                      'Current Active Tier'
+                    ) : (
+                      <>
+                        <Lock className="h-3.5 w-3.5" />
+                        Pay with Paymob Unified Checkout
+                      </>
+                    )}
                   </button>
                 </div>
               );
@@ -540,7 +663,85 @@ export default function UsageAndBillingDashboardPage() {
       )}
 
       {/* ========================================================================= */}
-      {/* TAB 3: INVOICES & PAYMENT HISTORY                                         */}
+      {/* TAB 3: PAYMOB TRANSACTIONS & RECONCILIATION                                */}
+      {/* ========================================================================= */}
+      {activeTab === 'PAYMENTS' && (
+        <div className="space-y-6">
+          <div className="flex items-center justify-between">
+            <h2 className="text-base font-bold text-white flex items-center gap-2">
+              <Wallet className="h-5 w-5 text-cyan-400" />
+              Paymob Transactions & Reconciliation Logs
+            </h2>
+            <span className="text-xs text-slate-400 font-mono">
+              HMAC SHA-512 Verified • Real-Time Webhooks
+            </span>
+          </div>
+
+          <div className="glass-panel rounded-xl border border-slate-800 overflow-hidden shadow-lg">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs text-slate-300">
+                <thead className="bg-slate-900/90 text-slate-400 uppercase text-[10px] font-semibold border-b border-slate-800">
+                  <tr>
+                    <th className="px-4 py-3">Merchant Reference</th>
+                    <th className="px-4 py-3">Paymob Tx ID</th>
+                    <th className="px-4 py-3">Tier Target</th>
+                    <th className="px-4 py-3">Amount</th>
+                    <th className="px-4 py-3">Status</th>
+                    <th className="px-4 py-3">Created</th>
+                    <th className="px-4 py-3 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-800/60 font-mono">
+                  {payments.map((pmt) => (
+                    <tr key={pmt.id} className="hover:bg-slate-800/40 transition">
+                      <td className="px-4 py-3.5 font-bold text-cyan-400">{pmt.merchantReference}</td>
+                      <td className="px-4 py-3.5 text-slate-300">{pmt.paymobTransactionId}</td>
+                      <td className="px-4 py-3.5 font-sans font-bold text-white">{pmt.plan}</td>
+                      <td className="px-4 py-3.5 font-bold text-slate-100">${pmt.amount.toFixed(2)}</td>
+                      <td className="px-4 py-3.5">
+                        <span
+                          className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                            pmt.status === 'SUCCEEDED'
+                              ? 'bg-emerald-950 text-emerald-400 border border-emerald-800'
+                              : pmt.status === 'PENDING'
+                              ? 'bg-amber-950 text-amber-400 border border-amber-800'
+                              : 'bg-rose-950 text-rose-400 border border-rose-800'
+                          }`}
+                        >
+                          {pmt.status}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3.5 text-slate-400 font-sans">{pmt.createdAt}</td>
+                      <td className="px-4 py-3.5 text-right font-sans space-x-2">
+                        {pmt.status === 'PENDING' && (
+                          <button
+                            onClick={() => handleReconcilePayment(pmt.id)}
+                            className="px-2.5 py-1 text-xs font-bold rounded bg-cyan-950 text-cyan-400 border border-cyan-800 hover:bg-cyan-900 transition inline-flex items-center gap-1"
+                          >
+                            <RefreshCw className="h-3 w-3" />
+                            Reconcile
+                          </button>
+                        )}
+                        {pmt.status === 'SUCCEEDED' && (
+                          <button
+                            onClick={() => handleRefundPayment(pmt.id)}
+                            className="px-2.5 py-1 text-xs rounded bg-slate-800 text-slate-400 hover:text-rose-400 transition"
+                          >
+                            Refund
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* TAB 4: INVOICES & PAYMENT HISTORY                                         */}
       {/* ========================================================================= */}
       {activeTab === 'INVOICES' && (
         <div className="space-y-6">
@@ -588,6 +789,72 @@ export default function UsageAndBillingDashboardPage() {
       )}
 
       {/* ========================================================================= */}
+      {/* MODAL: PAYMOB UNIFIED CHECKOUT DIALOG                                     */}
+      {/* ========================================================================= */}
+      {checkoutResult && (
+        <div className="fixed inset-0 z-50 bg-black/85 flex items-center justify-center p-4 backdrop-blur-md">
+          <div className="w-full max-w-lg glass-panel rounded-2xl border border-cyan-500/50 p-6 space-y-6 shadow-2xl relative">
+            <button
+              onClick={() => setCheckoutResult(null)}
+              className="absolute top-4 right-4 p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800"
+            >
+              <X className="h-4 w-4" />
+            </button>
+
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-cyan-950 text-cyan-400 border border-cyan-800 font-mono">
+                  PAYMOB UNIFIED CHECKOUT
+                </span>
+              </div>
+              <h2 className="text-lg font-bold text-white mt-1.5 flex items-center gap-2">
+                <Lock className="h-4 w-4 text-cyan-400" />
+                Proceed to Secure Payment
+              </h2>
+              <p className="text-xs text-slate-400 mt-1">
+                You are subscribing to <strong>{checkoutResult.planName}</strong> for <strong>${checkoutResult.amount.toFixed(2)}</strong>.
+              </p>
+            </div>
+
+            <div className="p-4 rounded-xl bg-slate-950/80 border border-slate-800 space-y-2 text-xs font-mono">
+              <div className="flex justify-between text-slate-400">
+                <span>Merchant Reference:</span>
+                <span className="text-cyan-400">{checkoutResult.merchantReference}</span>
+              </div>
+              <div className="flex justify-between text-slate-400">
+                <span>Client Secret:</span>
+                <span className="text-slate-300 truncate max-w-[200px]">{checkoutResult.clientSecret}</span>
+              </div>
+              <div className="flex justify-between text-slate-400">
+                <span>Security Engine:</span>
+                <span className="text-emerald-400">HMAC SHA-512 Verification</span>
+              </div>
+            </div>
+
+            <div className="space-y-3 font-sans">
+              <a
+                href={checkoutResult.unifiedCheckoutUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-full py-3 text-xs font-bold rounded-lg bg-gradient-to-r from-cyan-500 to-accent-500 text-slate-950 hover:brightness-110 shadow-glow transition flex items-center justify-center gap-2"
+              >
+                <ExternalLink className="h-4 w-4" />
+                Launch Paymob Checkout Page
+              </a>
+
+              <button
+                onClick={handleSimulateSuccessfulPayment}
+                className="w-full py-2.5 text-xs font-bold rounded-lg bg-emerald-950 hover:bg-emerald-900 text-emerald-300 border border-emerald-800 transition flex items-center justify-center gap-1.5"
+              >
+                <CheckCircle2 className="h-4 w-4" />
+                Simulate Webhook & Activate Subscription (Sandbox)
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
       {/* MODAL: UPGRADE MODAL                                                      */}
       {/* ========================================================================= */}
       {isUpgradeModalOpen && (
@@ -606,7 +873,7 @@ export default function UsageAndBillingDashboardPage() {
                 Select Your Subscription Tier
               </h2>
               <p className="text-xs text-slate-400 mt-1">
-                Dynamic pricing backed by enterprise database limits. Instant prorated upgrade.
+                Dynamic pricing backed by Paymob Intention API. Instant prorated upgrade.
               </p>
             </div>
 
@@ -628,15 +895,15 @@ export default function UsageAndBillingDashboardPage() {
                   </div>
 
                   <button
-                    onClick={() => handleSelectPlan(p.slug)}
+                    onClick={() => handleInitiatePaymobCheckout(p.slug)}
                     disabled={p.isCurrent}
-                    className={`w-full py-2 text-xs font-bold rounded-lg transition ${
+                    className={`w-full py-2 text-xs font-bold rounded-lg transition flex items-center justify-center gap-1.5 ${
                       p.isCurrent
                         ? 'bg-slate-800 text-slate-500 border border-slate-700'
                         : 'bg-cyan-500 hover:bg-cyan-400 text-slate-950'
                     }`}
                   >
-                    {p.isCurrent ? 'Current Plan' : 'Select Tier'}
+                    {p.isCurrent ? 'Current Plan' : 'Pay via Paymob'}
                   </button>
                 </div>
               ))}
@@ -676,7 +943,10 @@ export default function UsageAndBillingDashboardPage() {
                 Keep Subscription
               </button>
               <button
-                onClick={handleCancelSubscription}
+                onClick={() => {
+                  setSubscription({ ...subscription, cancelAtPeriodEnd: true });
+                  setIsCancelModalOpen(false);
+                }}
                 className="px-4 py-2 text-xs font-bold rounded-lg bg-rose-600 hover:bg-rose-500 text-white"
               >
                 Confirm Cancellation

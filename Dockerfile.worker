@@ -83,7 +83,7 @@ RUN npx playwright install --with-deps chromium firefox
 COPY --from=builder /app/package*.json ./
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/packages ./packages
-COPY --from=builder /app/apps/worker ./apps/worker
+COPY --from=builder /app/apps ./apps
 
 # Create system user
 RUN groupadd -r novaqa && useradd -r -g novaqa -G audio,video novaqa

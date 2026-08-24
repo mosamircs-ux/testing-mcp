@@ -6,10 +6,13 @@ const log = createChildLogger('worker-service');
 log.info('Starting NovaQA Worker background process...');
 workerQueue.start();
 
-process.on('SIGINT', () => {
-  log.info('Shutting down worker process gracefully...');
-  workerQueue.stop();
+const shutdown = async (signal: string) => {
+  log.info({ signal }, 'Shutting down worker process gracefully...');
+  await workerQueue.stop();
   process.exit(0);
-});
+};
+
+process.on('SIGINT', () => shutdown('SIGINT'));
+process.on('SIGTERM', () => shutdown('SIGTERM'));
 
 export * from './queue.js';

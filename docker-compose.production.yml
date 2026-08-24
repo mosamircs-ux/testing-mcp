@@ -1,0 +1,279 @@
+version: '3.8'
+
+services:
+  # ============================================================================
+  # 1. Primary Relational Database (PostgreSQL 16)
+  # ============================================================================
+  postgres:
+    image: postgres:16-alpine
+    container_name: novaqa-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-novaqa_production}
+      POSTGRES_USER: ${POSTGRES_USER:-novaqa_admin}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Database password is required}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    networks:
+      - novaqa-internal
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-novaqa_admin} -d ${POSTGRES_DB:-novaqa_production}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 4G
+        reservations:
+          cpus: '0.5'
+          memory: 1G
+
+  # ============================================================================
+  # 2. In-Memory Cache, Rate Limiting & Job Queue (Redis 7)
+  # ============================================================================
+  redis:
+    image: redis:7-alpine
+    container_name: novaqa-redis
+    restart: unless-stopped
+    command: ["redis-server", "--requirepass", "${REDIS_PASSWORD:?Redis password is required}", "--appendonly", "yes"]
+    volumes:
+      - redis_data:/data
+    networks:
+      - novaqa-internal
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+
+  # ============================================================================
+  # 3. S3-Compatible Object Storage (MinIO)
+  # ============================================================================
+  minio:
+    image: minio/minio:RELEASE.2024-05-10T01-41-38Z
+    container_name: novaqa-minio
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${STORAGE_ACCESS_KEY:-novaqa_minio_root}
+      MINIO_ROOT_PASSWORD: ${STORAGE_SECRET_KEY:?Storage secret key is required}
+    volumes:
+      - minio_data:/data
+    networks:
+      - novaqa-internal
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 2G
+
+  # ============================================================================
+  # 4. Backend REST / WebSocket API Server
+  # ============================================================================
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    container_name: novaqa-api
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: 4000
+      DATABASE_URL: postgresql://${POSTGRES_USER:-novaqa_admin}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-novaqa_production}?schema=public
+      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379/0
+      JWT_SECRET: ${JWT_SECRET:?JWT Secret is required}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-7d}
+      REFRESH_TOKEN_EXPIRES_IN: ${REFRESH_TOKEN_EXPIRES_IN:-30d}
+      PAYMOB_API_KEY: ${PAYMOB_API_KEY}
+      PAYMOB_SECRET_KEY: ${PAYMOB_SECRET_KEY}
+      PAYMOB_HMAC_SECRET: ${PAYMOB_HMAC_SECRET}
+      PAYMOB_INTEGRATION_ID_CARD: ${PAYMOB_INTEGRATION_ID_CARD}
+      STORAGE_ENDPOINT: http://minio:9000
+      STORAGE_BUCKET: ${STORAGE_BUCKET:-novaqa-artifacts}
+      STORAGE_ACCESS_KEY: ${STORAGE_ACCESS_KEY:-novaqa_minio_root}
+      STORAGE_SECRET_KEY: ${STORAGE_SECRET_KEY}
+      AI_DEFAULT_PROVIDER: ${AI_DEFAULT_PROVIDER:-mock}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      APP_URL: ${APP_URL:-https://novaqa.io}
+    networks:
+      - novaqa-internal
+      - novaqa-public
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:4000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
+
+  # ============================================================================
+  # 5. Background Execution Worker Grid (Playwright Browsers)
+  # ============================================================================
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile.worker
+    container_name: novaqa-worker
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      api:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      WORKER_PORT: 4001
+      MAX_CONCURRENT_RUNS: ${MAX_CONCURRENT_RUNS:-8}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-novaqa_admin}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-novaqa_production}?schema=public
+      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379/0
+      STORAGE_ENDPOINT: http://minio:9000
+      STORAGE_BUCKET: ${STORAGE_BUCKET:-novaqa-artifacts}
+      STORAGE_ACCESS_KEY: ${STORAGE_ACCESS_KEY:-novaqa_minio_root}
+      STORAGE_SECRET_KEY: ${STORAGE_SECRET_KEY}
+      AI_DEFAULT_PROVIDER: ${AI_DEFAULT_PROVIDER:-mock}
+    networks:
+      - novaqa-internal
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:4001/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          cpus: '4.0'
+          memory: 8G
+        reservations:
+          cpus: '1.0'
+          memory: 2G
+
+  # ============================================================================
+  # 6. Model Context Protocol (MCP) Server Container
+  # ============================================================================
+  mcp:
+    build:
+      context: .
+      dockerfile: Dockerfile.mcp
+    container_name: novaqa-mcp
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://${POSTGRES_USER:-novaqa_admin}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-novaqa_production}?schema=public
+      AI_DEFAULT_PROVIDER: ${AI_DEFAULT_PROVIDER:-mock}
+    networks:
+      - novaqa-internal
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+
+  # ============================================================================
+  # 7. Next.js SaaS Web Application Frontend
+  # ============================================================================
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile.web
+    container_name: novaqa-web
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      DATABASE_URL: postgresql://${POSTGRES_USER:-novaqa_admin}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-novaqa_production}?schema=public
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-/api/v1}
+      NEXT_PUBLIC_APP_URL: ${APP_URL:-https://novaqa.io}
+    networks:
+      - novaqa-internal
+      - novaqa-public
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
+
+  # ============================================================================
+  # 8. Edge Nginx Reverse Proxy (TLS Termination, HSTS, Rate Limiting)
+  # ============================================================================
+  nginx:
+    image: nginx:1.25-alpine
+    container_name: novaqa-proxy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/security-headers.conf:/etc/nginx/security-headers.conf:ro
+      - ./certs:/etc/nginx/certs:ro
+      - ./certbot/www:/var/www/certbot:ro
+    depends_on:
+      web:
+        condition: service_healthy
+      api:
+        condition: service_healthy
+    networks:
+      - novaqa-public
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O - http://127.0.0.1/nginx-health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
+
+networks:
+  novaqa-internal:
+    driver: bridge
+    internal: true
+  novaqa-public:
+    driver: bridge
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  minio_data:
+    driver: local

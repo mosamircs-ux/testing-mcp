@@ -1,0 +1,54 @@
+# ============================================================================
+# Stage 1: Build & Bundle Next.js Web Frontend
+# ============================================================================
+FROM node:20-alpine AS builder
+WORKDIR /app
+
+RUN apk add --no-cache libc6-compat
+
+COPY package*.json ./
+COPY packages/ ./packages/
+COPY apps/web/ ./apps/web/
+COPY tsconfig.json ./
+
+RUN npm ci
+
+# Generate Prisma Client (used for direct database queries in server components)
+RUN npx prisma generate --schema=packages/database/prisma/schema.prisma
+
+# Build Next.js Production Bundle
+ENV NEXT_TELEMETRY_DISABLED=1
+ENV NODE_ENV=production
+RUN npm run build --workspace=@novaqa/web
+
+# ============================================================================
+# Stage 2: Production Web Runner
+# ============================================================================
+FROM node:20-alpine AS runner
+WORKDIR /app
+
+ENV NODE_ENV=production
+ENV PORT=3000
+ENV NEXT_TELEMETRY_DISABLED=1
+
+RUN addgroup --system --gid 1001 nodejs && \
+    adduser --system --uid 1001 nextjs
+
+# Copy Next.js production build artifacts
+COPY --from=builder /app/package*.json ./
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/packages ./packages
+COPY --from=builder /app/apps/web/public ./apps/web/public
+COPY --from=builder /app/apps/web/.next ./apps/web/.next
+COPY --from=builder /app/apps/web/package.json ./apps/web/package.json
+
+RUN chown -R nextjs:nodejs /app
+
+USER nextjs
+
+EXPOSE 3000
+
+HEALTHCHECK --interval=15s --timeout=5s --start-period=10s --retries=3 \
+  CMD wget --no-verbose --tries=1 --spider http://localhost:3000/ || exit 1
+
+CMD ["npm", "run", "start", "--workspace=@novaqa/web"]

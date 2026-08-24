@@ -1,6 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import { healthRouter } from './routes/health';
+import { metricsRouter, recordHttpMetric } from './routes/metrics';
 import { authRouter } from './routes/auth';
 import { teamRouter } from './routes/team';
 import { projectsRouter } from './routes/projects';
@@ -18,24 +19,71 @@ import { billingRouter } from './routes/billing';
 import { paymentsRouter } from './routes/payments';
 import { adminRouter } from './routes/admin';
 import { errorHandler } from './middleware/error-handler';
+import { securityHeadersMiddleware } from './middleware/security-headers';
+import { apiRateLimiter, authRateLimiter, webhookRateLimiter } from './middleware/rate-limit';
 import { logger } from '@novaqa/shared';
 
 export function createServer() {
   const app = express();
 
-  // Core Middleware
-  app.use(cors({ origin: true, credentials: true }));
+  // Trust reverse proxy (Nginx / Cloudflare / AWS ALB)
+  app.set('trust proxy', 1);
+
+  // Security Headers (HSTS, CSP, nosniff, frame-ancestors, etc.)
+  app.use(securityHeadersMiddleware);
+
+  // CORS Configuration (Strict Origins & Methods)
+  const allowedOrigins = [
+    process.env.APP_URL || 'http://localhost:3000',
+    'http://localhost:3000',
+    'https://checkout.paymob.com'
+  ];
+  app.use(
+    cors({
+      origin: (origin, callback) => {
+        if (!origin || allowedOrigins.includes(origin) || process.env.NODE_ENV !== 'production') {
+          callback(null, true);
+        } else {
+          callback(new Error('Blocked by CORS policy'));
+        }
+      },
+      credentials: true,
+      methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+      allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'X-Request-ID', 'X-Paymob-HMAC']
+    })
+  );
+
   app.use(express.json({ limit: '20mb' }));
   app.use(express.urlencoded({ extended: true }));
 
-  // Request Logging
+  // Request Logging & Latency Metrics Recording
   app.use((req, res, next) => {
-    logger.debug({ method: req.method, path: req.path }, 'Incoming Request');
+    const start = Date.now();
+    res.on('finish', () => {
+      const durationMs = Date.now() - start;
+      recordHttpMetric(req.method, req.path, res.statusCode, durationMs);
+      logger.debug(
+        {
+          requestId: (req as any).id,
+          method: req.method,
+          path: req.path,
+          status: res.statusCode,
+          durationMs
+        },
+        'HTTP Request Completed'
+      );
+    });
     next();
   });
 
-  // Public Health Endpoints
+  // Public Health & Observability Metrics Endpoints
   app.use(healthRouter);
+  app.use(metricsRouter);
+
+  // Rate Limiting on Authentication & Webhook Routes
+  app.use('/api/v1/auth', authRateLimiter);
+  app.use('/api/v1/payments/paymob/webhook', webhookRateLimiter);
+  app.use('/api/v1', apiRateLimiter);
 
   // Auth Routes (Login, Register, Refresh, Forgot Password, Reset Password, Verify Email, OAuth)
   app.use(authRouter);

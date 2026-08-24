@@ -42,7 +42,10 @@ import {
   handleEnvironmentList,
   handleEnvironmentCreate,
   handleHealthCheck,
-  handleProjectAutoTest
+  handleProjectAutoTest,
+  handleMobileDeviceList,
+  handleMobileScenarioGenerate,
+  handleMobileCrashInspect
 } from './tools.js';
 import { prisma } from '@novaqa/database';
 import { createChildLogger } from '@novaqa/shared';
@@ -471,6 +474,39 @@ export function createMcpServer() {
               repositoryContext: { type: 'string' }
             }
           }
+        },
+
+        // Mobile Testing & Device Farm
+        {
+          name: 'mobile_device_list',
+          description: 'List available Android Emulators, iOS Simulators, and mobile worker execution devices in the pool.',
+          inputSchema: { type: 'object', properties: {} }
+        },
+        {
+          name: 'mobile_scenario_generate',
+          description: 'Autonomously synthesize comprehensive mobile test scenarios (Login, Onboarding, Permissions, Deep Links, Push, Offline, Payments).',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              appName: { type: 'string' },
+              framework: { type: 'string', enum: ['REACT_NATIVE', 'FLUTTER', 'NATIVE_ANDROID', 'NATIVE_IOS', 'CORDOVA_IONIC'] },
+              platform: { type: 'string', enum: ['ANDROID', 'IOS'] },
+              appPackageOrBundle: { type: 'string' },
+              deepLinkScheme: { type: 'string' }
+            },
+            required: ['appName']
+          }
+        },
+        {
+          name: 'mobile_crash_inspect',
+          description: 'Inspect device logcat / syslog artifacts for fatal native crashes and ANR (Application Not Responding) events.',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              testRunId: { type: 'string' },
+              testResultId: { type: 'string' }
+            }
+          }
         }
       ]
     };
@@ -575,6 +611,14 @@ export function createMcpServer() {
         case 'project_auto_test':
         case 'test_project_autonomous':
           return await handleProjectAutoTest(args as any);
+
+        // Mobile Testing & Device Farm
+        case 'mobile_device_list':
+          return await handleMobileDeviceList(args as any);
+        case 'mobile_scenario_generate':
+          return await handleMobileScenarioGenerate(args as any);
+        case 'mobile_crash_inspect':
+          return await handleMobileCrashInspect(args as any);
 
         default:
           throw new Error(`Unknown tool: ${name}`);

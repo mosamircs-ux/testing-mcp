@@ -146,8 +146,15 @@ export class TestExecutionOrchestrator {
     let engine: TestEngine;
     if (run.project.engineType === EngineType.API_REST || run.project.engineType === EngineType.API_GRAPHQL) {
       engine = new ApiTestEngine();
-    } else if (run.project.engineType === EngineType.MOBILE_HARNESS) {
-      engine = new MobileTestEngine();
+    } else if (
+      run.project.engineType === EngineType.MOBILE_HARNESS ||
+      run.project.engineType === EngineType.MOBILE_ANDROID ||
+      run.project.engineType === EngineType.MOBILE_IOS ||
+      run.project.category === 'MOBILE' ||
+      run.project.category === 'MOBILE_APP'
+    ) {
+      const isIos = run.project.engineType === EngineType.MOBILE_IOS || run.project.name.toLowerCase().includes('ios');
+      engine = new MobileTestEngine({ platform: isIos ? 'ios' : 'android' });
     } else {
       engine = new PlaywrightEngine();
     }

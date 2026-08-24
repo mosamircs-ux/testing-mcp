@@ -64,7 +64,135 @@ export enum EngineType {
   PLAYWRIGHT = 'PLAYWRIGHT',
   API_REST = 'API_REST',
   API_GRAPHQL = 'API_GRAPHQL',
-  MOBILE_HARNESS = 'MOBILE_HARNESS'
+  MOBILE_HARNESS = 'MOBILE_HARNESS',
+  MOBILE_ANDROID = 'MOBILE_ANDROID',
+  MOBILE_IOS = 'MOBILE_IOS'
+}
+
+export enum MobilePlatform {
+  ANDROID = 'ANDROID',
+  IOS = 'IOS'
+}
+
+export enum MobileFramework {
+  REACT_NATIVE = 'REACT_NATIVE',
+  FLUTTER = 'FLUTTER',
+  NATIVE_ANDROID = 'NATIVE_ANDROID',
+  NATIVE_IOS = 'NATIVE_IOS',
+  CORDOVA_IONIC = 'CORDOVA_IONIC',
+  GENERIC_MOBILE = 'GENERIC_MOBILE'
+}
+
+export enum MobileDeviceType {
+  EMULATOR = 'EMULATOR',
+  SIMULATOR = 'SIMULATOR',
+  REAL_DEVICE = 'REAL_DEVICE',
+  CLOUD_FARM = 'CLOUD_FARM'
+}
+
+export enum MobileDeviceState {
+  BOOTING = 'BOOTING',
+  READY = 'READY',
+  BUSY = 'BUSY',
+  OFFLINE = 'OFFLINE',
+  ERROR = 'ERROR'
+}
+
+export enum MobileNetworkState {
+  WIFI = 'WIFI',
+  DATA_5G = 'DATA_5G',
+  DATA_4G = 'DATA_4G',
+  DATA_3G = 'DATA_3G',
+  OFFLINE = 'OFFLINE',
+  AIRPLANE_MODE = 'AIRPLANE_MODE'
+}
+
+export enum MobileActionType {
+  LAUNCH_APP = 'LAUNCH_APP',
+  RESET_APP = 'RESET_APP',
+  TERMINATE_APP = 'TERMINATE_APP',
+  INSTALL_APP = 'INSTALL_APP',
+  UNINSTALL_APP = 'UNINSTALL_APP',
+  TAP = 'TAP',
+  DOUBLE_TAP = 'DOUBLE_TAP',
+  LONG_PRESS = 'LONG_PRESS',
+  SWIPE = 'SWIPE',
+  SCROLL = 'SCROLL',
+  DRAG_AND_DROP = 'DRAG_AND_DROP',
+  TYPE = 'TYPE',
+  CLEAR_TEXT = 'CLEAR_TEXT',
+  HIDE_KEYBOARD = 'HIDE_KEYBOARD',
+  PRESS_BACK = 'PRESS_BACK',
+  PRESS_HOME = 'PRESS_HOME',
+  OPEN_NOTIFICATIONS = 'OPEN_NOTIFICATIONS',
+  OPEN_APP_SWITCHER = 'OPEN_APP_SWITCHER',
+  GRANT_PERMISSION = 'GRANT_PERMISSION',
+  REVOKE_PERMISSION = 'REVOKE_PERMISSION',
+  OPEN_DEEP_LINK = 'OPEN_DEEP_LINK',
+  SEND_PUSH_NOTIFICATION = 'SEND_PUSH_NOTIFICATION',
+  SET_NETWORK_STATE = 'SET_NETWORK_STATE',
+  CAPTURE_SCREENSHOT = 'CAPTURE_SCREENSHOT',
+  START_RECORDING = 'START_RECORDING',
+  STOP_RECORDING = 'STOP_RECORDING',
+  GET_DEVICE_LOGS = 'GET_DEVICE_LOGS',
+  DETECT_CRASHES = 'DETECT_CRASHES',
+  ASSERT_ELEMENT_VISIBLE = 'ASSERT_ELEMENT_VISIBLE',
+  ASSERT_TEXT_PRESENT = 'ASSERT_TEXT_PRESENT',
+  ASSERT_APP_IN_FOREGROUND = 'ASSERT_APP_IN_FOREGROUND'
+}
+
+export interface MobileDeviceInfo {
+  id: string;
+  name: string;
+  platform: MobilePlatform;
+  framework?: MobileFramework;
+  deviceType: MobileDeviceType;
+  osVersion: string;
+  screenResolution: { width: number; height: number };
+  pixelRatio?: number;
+  state: MobileDeviceState;
+  currentApp?: string;
+  batteryLevel?: number;
+  networkState?: MobileNetworkState;
+  isLocked?: boolean;
+}
+
+export interface MobileLocator {
+  accessibilityId?: string;
+  id?: string;
+  text?: string;
+  xpath?: string;
+  coordinates?: { x: number; y: number };
+  role?: string;
+}
+
+export interface MobileCrashReport {
+  crashId: string;
+  timestamp: string;
+  processName: string;
+  crashType: 'FATAL_EXCEPTION' | 'NATIVE_CRASH' | 'ANR' | 'MEMORY_OOM' | 'EXCEPTION';
+  stackTrace: string;
+  logSnippet: string[];
+  reproducedStepOrder?: number;
+}
+
+export interface MobileScenarioTemplate {
+  scenarioId: string;
+  title: string;
+  category: string;
+  framework: MobileFramework;
+  platform: MobilePlatform;
+  description: string;
+  priority: 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW';
+  steps: Array<{
+    order: number;
+    action: MobileActionType | string;
+    target?: string;
+    value?: string;
+    description: string;
+    expectedOutput?: string;
+  }>;
+  expectedResult: string;
 }
 
 export enum TestRunStatus {

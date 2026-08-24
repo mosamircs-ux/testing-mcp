@@ -7,3 +7,5 @@ export * from './fix-proposal-engine';
 export * from './verification-engine';
 export * from './discovery-engine';
 export * from './test-planning-engine';
+export * from './mobile-generator';
+

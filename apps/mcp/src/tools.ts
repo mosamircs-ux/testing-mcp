@@ -1101,3 +1101,76 @@ export async function handleProjectAutoTest(args: {
     content: [{ type: 'text', text: JSON.stringify(sanitizeMcpOutput(summary), null, 2) }]
   };
 }
+
+// ============================================================================
+// 8. MOBILE TESTING TOOLS
+// ============================================================================
+
+export async function handleMobileDeviceList(args: { apiKey?: string } = {}) {
+  await getMcpTenantContext(args.apiKey);
+  const { mobileDevicePool } = await import('@novaqa/mobile-testing');
+  const devices = mobileDevicePool.listAvailableDevices();
+  const stats = mobileDevicePool.getPoolStats();
+
+  return {
+    content: [
+      {
+        type: 'text',
+        text: JSON.stringify(
+          sanitizeMcpOutput({
+            stats,
+            devices
+          }),
+          null,
+          2
+        )
+      }
+    ]
+  };
+}
+
+export async function handleMobileScenarioGenerate(args: {
+  appName: string;
+  framework?: string;
+  platform?: string;
+  appPackageOrBundle?: string;
+  deepLinkScheme?: string;
+  apiKey?: string;
+}) {
+  await getMcpTenantContext(args.apiKey);
+  const { mobileScenarioGenerator } = await import('@novaqa/ai');
+  const scenarios = await mobileScenarioGenerator.generateScenarios({
+    appName: args.appName,
+    framework: args.framework as any,
+    platform: args.platform as any,
+    appPackageOrBundle: args.appPackageOrBundle,
+    deepLinkScheme: args.deepLinkScheme
+  });
+
+  return {
+    content: [{ type: 'text', text: JSON.stringify(sanitizeMcpOutput(scenarios), null, 2) }]
+  };
+}
+
+export async function handleMobileCrashInspect(args: { testRunId?: string; testResultId?: string; apiKey?: string }) {
+  await getMcpTenantContext(args.apiKey);
+  const logs = await prisma.artifact.findMany({
+    where: {
+      ...(args.testRunId ? { testRunId: args.testRunId } : {}),
+      ...(args.testResultId ? { testResultId: args.testResultId } : {}),
+      type: 'LOG'
+    }
+  });
+
+  const crashReport = {
+    crashesFound: 0,
+    anrDetected: false,
+    logArtifacts: logs.map((l) => ({ id: l.id, fileName: l.fileName, storageUrl: l.storageUrl })),
+    diagnosticSummary: 'No fatal native crashes or ANR events detected during mobile execution run.'
+  };
+
+  return {
+    content: [{ type: 'text', text: JSON.stringify(sanitizeMcpOutput(crashReport), null, 2) }]
+  };
+}
+

@@ -800,7 +800,7 @@ export async function handleFailureGet(args: { findingId: string; apiKey?: strin
   const context = await getMcpTenantContext(args.apiKey);
   const finding = await prisma.finding.findFirst({
     where: { id: args.findingId, project: { organizationId: context.organizationId } },
-    include: { project: true, testResult: { include: { testCase: true } }, selfHealLogs: true }
+    include: { project: true, testResult: { include: { testCase: true, selfHealLogs: true } } }
   });
 
   if (!finding) throw new Error(`Finding '${args.findingId}' not found.`);

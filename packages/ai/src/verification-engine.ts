@@ -57,7 +57,10 @@ export class VerificationEngine {
       throw new Error(`Finding '${findingId}' not found.`);
     }
 
-    const testCase = finding.testResult.testCase;
+    const testCase = finding.testResult?.testCase;
+    if (!testCase) {
+      throw new Error(`Finding '${findingId}' does not have an associated test result/case.`);
+    }
     const history = this.parseHistory(finding.fixHistory);
 
     // Update status to VERIFICATION_RUNNING

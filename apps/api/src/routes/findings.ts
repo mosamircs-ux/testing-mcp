@@ -118,7 +118,11 @@ findingsRouter.post('/api/v1/findings/:id/auto-heal', requirePermission('finding
 
     if (!finding) throw new NotFoundError('Finding', id);
 
-    const testCase = finding.testResult.testCase;
+    const testCase = finding.testResult?.testCase;
+    if (!testCase) {
+      res.json({ success: true, message: 'No associated test case to heal' });
+      return;
+    }
     const failedStep = testCase.steps.find((s: any) => s.target && s.target.includes('btn')) || testCase.steps[0];
 
     const healResult = await autoHealer.healSelector({

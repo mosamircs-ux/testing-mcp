@@ -44,19 +44,25 @@ model Session {
 }
 
 model Organization {
-  id           String               @id @default(cuid())
-  name         String
-  slug         String               @unique
-  tier         String               @default("FREE")
-  members      OrganizationMember[]
-  teams        Team[]
-  projects     Project[]
-  apiKeys      ApiKey[]
-  auditLogs    AuditLog[]
-  subscription Subscription?
-  usageMetrics UsageMetric[]
-  createdAt    DateTime             @default(now())
-  updatedAt    DateTime             @updatedAt
+  id             String               @id @default(cuid())
+  name           String
+  slug           String               @unique
+  tier           String               @default("FREE")
+  members        OrganizationMember[]
+  teams          Team[]
+  projects       Project[]
+  apiKeys        ApiKey[]
+  auditLogs      AuditLog[]
+  subscription   Subscription?
+  usageMetrics   UsageMetric[]
+  invoices       Invoice[]
+  payments       Payment[]
+  paymentMethods PaymentMethod[]
+  transactions   Transaction[]
+  credits        Credit[]
+  refunds        Refund[]
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime             @updatedAt
 }
 
 model OrganizationMember {
@@ -72,14 +78,16 @@ model OrganizationMember {
 }
 
 model Team {
-  id             String       @id @default(cuid())
+  id             String        @id @default(cuid())
   organizationId String
   name           String
   slug           String
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  description    String?
+  organization   Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   members        TeamMember[]
   projects       Project[]
-  createdAt      DateTime     @default(now())
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @default(now()) @updatedAt
 
   @@unique([organizationId, slug])
 }
@@ -133,30 +141,32 @@ model Project {
 model ProjectDiscovery {
   id             String    @id @default(cuid())
   projectId      String
-  status         String    @default("PENDING") // PENDING, IN_PROGRESS, COMPLETED, FAILED
+  status         String    @default("PENDING")
   progress       Int       @default(0)
   currentStep    String    @default("INITIALIZING")
+  durationMs     Int       @default(0)
   logs           String    @default("[]")
   techStack      String    @default("{}")
   applicationMap String    @default("{}")
   routesMap      String    @default("[]")
   apiMap         String    @default("[]")
-  featureMap     String    @default("[]")
   authMap        String    @default("{}")
+  featureMap     String    @default("[]")
   roleMap        String    @default("[]")
   workflowMap    String    @default("[]")
   riskAreas      String    @default("[]")
-  normalizedSpec String    @default("{}")
   rawAnalysis    String    @default("{}")
+  errorMessage   String?
+  routes         String    @default("[]")
+  apiEndpoints   String    @default("[]")
+  authMechanism  String    @default("{}")
+  workflows      String    @default("[]")
+  normalizedSpec String?
+  project        Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
   startedAt      DateTime  @default(now())
   completedAt    DateTime?
-  durationMs     Int       @default(0)
-  errorMessage   String?
-  project        Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
-
-  @@index([projectId, createdAt])
 }
 
 model TestPlan {
@@ -165,9 +175,9 @@ model TestPlan {
   title            String
   description      String?
   version          String            @default("1.0.0")
-  status           String            @default("DRAFT") // DRAFT, REVIEW, APPROVED, ARCHIVED
-  summary          String            @default("")
-  coverageMetrics  String            @default("{}") // JSON: requirementCoverage, routeCoverage, etc.
+  status           String            @default("GENERATING")
+  summary          String?
+  coverageMetrics  String            @default("{}")
   userInstructions String?
   project          Project           @relation(fields: [projectId], references: [id], onDelete: Cascade)
   testCases        PlannedTestCase[]
@@ -179,27 +189,27 @@ model TestPlan {
 
 model PlannedTestCase {
   id                   String   @id @default(cuid())
-  customId             String   // e.g. "TC001", "TC002"
+  customId             String
   testPlanId           String
   projectId            String
   title                String
   description          String
-  priority             String   @default("HIGH") // CRITICAL, HIGH, MEDIUM, LOW
+  priority             String   @default("HIGH")
   category             String   @default("Functional")
-  scenarioType         String   @default("HAPPY_PATH") // HAPPY_PATH, NEGATIVE_PATH, EDGE_CASE
-  preconditions        String   @default("[]") // JSON string array
-  testData             String   @default("{}") // JSON object
-  steps                String   @default("[]") // JSON array of step objects
+  scenarioType         String   @default("HAPPY_PATH")
+  preconditions        String   @default("[]")
+  testData             String   @default("{}")
+  steps                String   @default("[]")
   expectedResults      String
   risk                 String   @default("")
-  requirementReference String   @default("") // Traceability link
-  affectedRoutes       String   @default("[]") // JSON string array
-  affectedApis         String   @default("[]") // JSON string array
-  roles                String   @default("[]") // JSON string array
+  requirementReference String   @default("")
+  affectedRoutes       String   @default("[]")
+  affectedApis         String   @default("[]")
+  roles                String   @default("[]")
   environment          String   @default("STAGING")
-  automationStatus     String   @default("READY_FOR_AUTOMATION") // DRAFT, READY_FOR_AUTOMATION, AUTOMATED, MANUAL_ONLY
-  reviewStatus         String   @default("PENDING") // PENDING, APPROVED, REJECTED
-  tags                 String   @default("[]") // JSON string array
+  automationStatus     String   @default("READY_FOR_AUTOMATION")
+  reviewStatus         String   @default("PENDING")
+  tags                 String   @default("[]")
   groupName            String   @default("General")
   semanticHash         String?
   testPlan             TestPlan @relation(fields: [testPlanId], references: [id], onDelete: Cascade)
@@ -208,7 +218,6 @@ model PlannedTestCase {
   updatedAt            DateTime @updatedAt
 
   @@index([testPlanId, customId])
-  @@index([projectId, category])
 }
 
 model Environment {
@@ -302,79 +311,93 @@ model TestRun {
 }
 
 model TestResult {
-  id           String      @id @default(cuid())
+  id           String        @id @default(cuid())
   testRunId    String
   testCaseId   String
-  status       String      @default("PASSED")
-  durationMs   Int         @default(0)
+  status       String
+  durationMs   Int           @default(0)
+  startedAt    DateTime?
+  completedAt  DateTime?
+  stepResults  String        @default("[]")
   errorMessage String?
   stackTrace   String?
-  stepResults  String      @default("[]")
-  startedAt    DateTime    @default(now())
-  completedAt  DateTime    @default(now())
-  testRun      TestRun     @relation(fields: [testRunId], references: [id], onDelete: Cascade)
-  testCase     TestCase    @relation(fields: [testCaseId], references: [id], onDelete: Cascade)
-  findings     Finding[]
+  stdout       String?
+  stderr       String?
+  retryCount   Int           @default(0)
+  isFlaky      Boolean       @default(false)
+  testRun      TestRun       @relation(fields: [testRunId], references: [id], onDelete: Cascade)
+  testCase     TestCase      @relation(fields: [testCaseId], references: [id], onDelete: Cascade)
   artifacts    Artifact[]
+  findings     Finding[]
+  selfHealLogs SelfHealLog[]
+  createdAt    DateTime      @default(now())
+
+  @@index([testRunId, status])
 }
 
 model Finding {
-  id                 String        @id @default(cuid())
-  testRunId          String
-  testResultId       String
+  id                 String      @id @default(cuid())
+  testRunId          String?
+  testResultId       String?
   projectId          String
-  category           String        @default("REAL_BUG")
-  severity           String        @default("HIGH")
-  status             String        @default("OPEN")
+  category           String
+  severity           String
+  status             String      @default("OPEN")
   title              String
   description        String
-  rootCauseAnalysis  String
+  rootCauseAnalysis  String?
   suggestedFix       String?
   suggestedPatch     String?
   autoHealSelector   String?
-  confidence         Float?
+  confidence         Float       @default(1.0)
   cwe                String?
   affectedComponent  String?
   evidence           String?
-  affectedFiles      String?
+  affectedFiles      String      @default("[]")
   affectedCode       String?
   regressionRisk     String?
   risk               String?
   remediation        String?
-  reproductionSteps  String?
-  references         String?
-  fixApproved        Boolean       @default(false)
+  reproductionSteps  String      @default("[]")
+  references         String      @default("[]")
+  fixApproved        Boolean     @default(false)
   fixAppliedAt       DateTime?
   verificationRunId  String?
-  fixHistory         String?
+  fixHistory         String      @default("[]")
   rawLogExcerpt      String?
-  selfHealLogs       SelfHealLog[]
-  testRun            TestRun       @relation(fields: [testRunId], references: [id], onDelete: Cascade)
-  testResult         TestResult    @relation(fields: [testResultId], references: [id], onDelete: Cascade)
-  project            Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  createdAt          DateTime      @default(now())
-  updatedAt          DateTime      @updatedAt
+  testRun            TestRun?    @relation(fields: [testRunId], references: [id], onDelete: SetNull)
+  testResult         TestResult? @relation(fields: [testResultId], references: [id], onDelete: SetNull)
+  project            Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdAt          DateTime    @default(now())
+  updatedAt          DateTime    @updatedAt
+
+  @@index([projectId, status, severity])
 }
 
 model SelfHealLog {
-  id                 String   @id @default(cuid())
-  findingId          String
+  id                 String      @id @default(cuid())
   testCaseId         String
-  healType           String
-  originalValue      String
-  healedValue        String
-  confidence         Float
-  appliedAt          DateTime @default(now())
-  verificationStatus String   @default("PENDING")
-  finding            Finding  @relation(fields: [findingId], references: [id], onDelete: Cascade)
-  testCase           TestCase @relation(fields: [testCaseId], references: [id], onDelete: Cascade)
+  testResultId       String?
+  findingId          String?
+  originalValue      String?
+  healedValue        String?
+  originalTarget     String      @default("")
+  healedTarget       String      @default("")
+  healType           String      @default("SELECTOR_UPDATE")
+  confidence         Float       @default(1.0)
+  status             String      @default("APPLIED")
+  verificationStatus String      @default("VERIFIED")
+  appliedAt          DateTime    @default(now())
+  testCase           TestCase    @relation(fields: [testCaseId], references: [id], onDelete: Cascade)
+  testResult         TestResult? @relation(fields: [testResultId], references: [id], onDelete: SetNull)
+  createdAt          DateTime    @default(now())
 }
 
 model Artifact {
   id           String      @id @default(cuid())
   testRunId    String
   testResultId String?
-  type         String      @default("SCREENSHOT")
+  type         String
   fileName     String
   fileSize     Int
   mimeType     String
@@ -416,29 +439,6 @@ model McpSession {
   createdAt     DateTime @default(now())
 }
 
-model UsageMetric {
-  id             String       @id @default(cuid())
-  organizationId String
-  monthYear      String
-  testRunsCount  Int          @default(0)
-  aiTokensCount  Int          @default(0)
-  storageBytes   BigInt       @default(0)
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-
-  @@unique([organizationId, monthYear])
-}
-
-model Subscription {
-  id               String       @id @default(cuid())
-  organizationId   String       @unique
-  tier             String       @default("FREE")
-  status           String       @default("active")
-  currentPeriodEnd DateTime?
-  organization     Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  createdAt        DateTime     @default(now())
-  updatedAt        DateTime     @updatedAt
-}
-
 model AuditLog {
   id             String       @id @default(cuid())
   organizationId String
@@ -450,5 +450,176 @@ model AuditLog {
   ipAddress      String?
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   user           User?        @relation(fields: [userId], references: [id], onDelete: SetNull)
+  createdAt      DateTime     @default(now())
+}
+
+// ============================================================================
+// SaaS BILLING ARCHITECTURE MODELS
+// ============================================================================
+
+model Plan {
+  id            String         @id @default(cuid())
+  slug          String         @unique // FREE, STARTER, PRO, TEAM, BUSINESS, ENTERPRISE
+  name          String
+  description   String?
+  priceMonthly  Int            @default(0) // In cents (e.g. 2900 = $29.00)
+  priceYearly   Int            @default(0) // In cents (e.g. 29000 = $290.00)
+  currency      String         @default("USD")
+  isActive      Boolean        @default(true)
+  limits        String         @default("{}") // JSON: maxProjects, maxExecutions, maxAiTokens, etc.
+  features      Feature[]
+  subscriptions Subscription[]
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+}
+
+model Feature {
+  id          String   @id @default(cuid())
+  planId      String
+  code        String   // PARALLEL_SANDBOXES, SELF_HEALING, DEFENSIVE_SECURITY, MCP_SERVER, EMULATOR_WORKERS
+  name        String
+  description String?
+  isEnabled   Boolean  @default(true)
+  plan        Plan     @relation(fields: [planId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([planId, code])
+}
+
+model Subscription {
+  id                   String        @id @default(cuid())
+  organizationId       String        @unique
+  planId               String
+  status               String        @default("active") // trial, active, past_due, cancelled, expired
+  interval             String        @default("monthly") // monthly, yearly
+  currentPeriodStart   DateTime      @default(now())
+  currentPeriodEnd     DateTime
+  cancelAtPeriodEnd    Boolean       @default(false)
+  trialEndsAt          DateTime?
+  stripeCustomerId     String?
+  stripeSubscriptionId String?
+  organization         Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  plan                 Plan          @relation(fields: [planId], references: [id])
+  invoices             Invoice[]
+  transactions         Transaction[]
+  createdAt            DateTime      @default(now())
+  updatedAt            DateTime      @updatedAt
+}
+
+model UsageMetric {
+  id                     String       @id @default(cuid())
+  organizationId         String
+  monthYear              String       // e.g. "2026-08"
+  projectsCount          Int          @default(0)
+  testExecutionsCount    Int          @default(0)
+  aiTokensCount          Int          @default(0)
+  browserMinutes         Int          @default(0)
+  apiRequestsCount       Int          @default(0)
+  mobileExecutionMinutes Int          @default(0)
+  storageBytes           BigInt       @default(0)
+  artifactsCount         Int          @default(0)
+  teamMembersCount       Int          @default(0)
+  organization           Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdAt              DateTime     @default(now())
+  updatedAt              DateTime     @updatedAt
+
+  @@unique([organizationId, monthYear])
+}
+
+model Invoice {
+  id                String        @id @default(cuid())
+  organizationId    String
+  subscriptionId    String?
+  invoiceNumber     String        @unique // e.g. "INV-2026-001"
+  amountDue         Int           @default(0) // in cents
+  amountPaid        Int           @default(0) // in cents
+  currency          String        @default("USD")
+  status            String        @default("PAID") // DRAFT, OPEN, PAID, VOID, UNCOLLECTIBLE
+  dueDate           DateTime
+  paidAt            DateTime?
+  hostedInvoiceUrl  String?
+  pdfUrl            String?
+  lineItems         String        @default("[]") // JSON array of { description, amount, quantity }
+  organization      Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  subscription      Subscription? @relation(fields: [subscriptionId], references: [id], onDelete: SetNull)
+  payments          Payment[]
+  transactions      Transaction[]
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+}
+
+model Payment {
+  id              String         @id @default(cuid())
+  organizationId  String
+  invoiceId       String?
+  paymentMethodId String?
+  amount          Int            @default(0) // in cents
+  currency        String         @default("USD")
+  status          String         @default("SUCCEEDED") // PENDING, SUCCEEDED, FAILED
+  errorMessage    String?
+  organization    Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  invoice         Invoice?       @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
+  paymentMethod   PaymentMethod? @relation(fields: [paymentMethodId], references: [id], onDelete: SetNull)
+  refunds         Refund[]
+  createdAt       DateTime       @default(now())
+}
+
+model PaymentMethod {
+  id             String       @id @default(cuid())
+  organizationId String
+  type           String       @default("CARD") // CARD, BANK_TRANSFER, PAYPAL
+  provider       String       @default("STRIPE")
+  last4          String
+  brand          String       @default("visa") // visa, mastercard, amex
+  expMonth       Int
+  expYear        Int
+  isDefault      Boolean      @default(false)
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  payments       Payment[]
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+}
+
+model Transaction {
+  id             String        @id @default(cuid())
+  organizationId String
+  subscriptionId String?
+  invoiceId      String?
+  type           String        @default("CHARGE") // CHARGE, PAYMENT, CREDIT, REFUND
+  amount         Int           @default(0) // in cents
+  currency       String        @default("USD")
+  status         String        @default("COMPLETED")
+  description    String?
+  referenceId    String?
+  organization   Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  subscription   Subscription? @relation(fields: [subscriptionId], references: [id], onDelete: SetNull)
+  invoice        Invoice?      @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
+  createdAt      DateTime      @default(now())
+}
+
+model Credit {
+  id               String       @id @default(cuid())
+  organizationId   String
+  amount           Int          @default(0) // in cents
+  currency         String       @default("USD")
+  balanceRemaining Int          @default(0) // in cents
+  reason           String?
+  expiresAt        DateTime?
+  organization     Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+}
+
+model Refund {
+  id             String       @id @default(cuid())
+  organizationId String
+  paymentId      String?
+  amount         Int          @default(0) // in cents
+  currency       String       @default("USD")
+  reason         String?
+  status         String       @default("SUCCEEDED") // PENDING, SUCCEEDED, FAILED
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  payment        Payment?     @relation(fields: [paymentId], references: [id], onDelete: SetNull)
   createdAt      DateTime     @default(now())
 }

@@ -228,7 +228,7 @@ Return ONLY valid JSON matching this schema:
               runId: pr.testRunId,
               status: pr.status,
               durationMs: pr.durationMs,
-              timestamp: pr.startedAt.toISOString()
+              timestamp: (pr.startedAt || new Date()).toISOString()
             }));
           }
         }

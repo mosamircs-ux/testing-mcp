@@ -147,6 +147,7 @@ export class TestPlanningEngine {
 
     return {
       ...testPlan,
+      summary: testPlan.summary || '',
       status: testPlan.status as TestPlanStatus,
       coverageMetrics,
       testCases: createdCases.map((c) => ({
@@ -163,7 +164,7 @@ export class TestPlanningEngine {
         reviewStatus: c.reviewStatus as ReviewStatus,
         tags: JSON.parse(c.tags)
       }))
-    };
+    } as any;
   }
 
   /**

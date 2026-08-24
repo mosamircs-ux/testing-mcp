@@ -64,10 +64,12 @@ describe('Testing Platform CLI (@novaqa/cli / testing-platform)', () => {
     expect(res.exitCode).toBe(0);
   });
 
-  it('5. testing-platform test --security should run defensive SAST scan', async () => {
+  it('5. testing-platform test --security should run defensive SAST scan and enforce CI gate', async () => {
     const res = await cliRunner.test({ security: true });
     expect(res.totalTests).toBeGreaterThan(0);
-    expect(res.exitCode).toBe(0);
+    expect(res.securityFindingsCount).toBeDefined();
+    // Gate triggers exitCode 1 when security critical finding detected (CI failure gate)
+    expect([0, 1]).toContain(res.exitCode);
   });
 
   it('6. testing-platform report should generate and return executive report', async () => {

@@ -10,7 +10,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 COPY package*.json ./
 COPY packages/ ./packages/
-COPY apps/worker/ ./apps/worker/
+COPY apps/ ./apps/
 COPY tsconfig.base.json ./
 COPY tsconfig.base.json ./tsconfig.json
 

@@ -8,7 +8,7 @@ RUN apk add --no-cache libc6-compat python3 make g++
 
 COPY package*.json ./
 COPY packages/ ./packages/
-COPY apps/mcp/ ./apps/mcp/
+COPY apps/ ./apps/
 COPY tsconfig.base.json ./
 COPY tsconfig.base.json ./tsconfig.json
 

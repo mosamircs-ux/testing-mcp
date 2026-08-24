@@ -10,7 +10,7 @@ RUN apk add --no-cache libc6-compat python3 make g++
 # Copy root manifests and workspace files
 COPY package*.json ./
 COPY packages/ ./packages/
-COPY apps/api/ ./apps/api/
+COPY apps/ ./apps/
 COPY tsconfig.base.json ./
 COPY tsconfig.base.json ./tsconfig.json
 

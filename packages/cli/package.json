@@ -1,7 +1,10 @@
 {
-  "name": "@novaqa/reporting",
+  "name": "@novaqa/cli",
   "version": "1.0.0",
   "private": true,
+  "bin": {
+    "testing-platform": "./src/index.ts"
+  },
   "main": "./src/index.ts",
   "types": "./src/index.ts",
   "scripts": {
@@ -10,7 +13,10 @@
   },
   "dependencies": {
     "@novaqa/database": "*",
+    "@novaqa/reporting": "*",
+    "@novaqa/security": "*",
     "@novaqa/shared": "*",
+    "@novaqa/testing": "*",
     "@novaqa/types": "*"
   },
   "devDependencies": {

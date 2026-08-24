@@ -12,6 +12,8 @@ import { aiRouter } from './routes/ai';
 import { apiKeysRouter } from './routes/api-keys';
 import { artifactsRouter } from './routes/artifacts';
 import securityRouter from './routes/security';
+import { reportsRouter } from './routes/reports';
+import { ciCdRouter } from './routes/ci-cd';
 import { errorHandler } from './middleware/error-handler';
 import { logger } from '@novaqa/shared';
 
@@ -45,6 +47,8 @@ export function createServer() {
   app.use(aiRouter);
   app.use(apiKeysRouter);
   app.use(artifactsRouter);
+  app.use(reportsRouter);
+  app.use(ciCdRouter);
   app.use('/api/v1/security', securityRouter);
 
   // Global Error Handler

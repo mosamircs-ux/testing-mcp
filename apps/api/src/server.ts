@@ -11,6 +11,7 @@ import { findingsRouter } from './routes/findings';
 import { aiRouter } from './routes/ai';
 import { apiKeysRouter } from './routes/api-keys';
 import { artifactsRouter } from './routes/artifacts';
+import securityRouter from './routes/security';
 import { errorHandler } from './middleware/error-handler';
 import { logger } from '@novaqa/shared';
 
@@ -44,6 +45,7 @@ export function createServer() {
   app.use(aiRouter);
   app.use(apiKeysRouter);
   app.use(artifactsRouter);
+  app.use('/api/v1/security', securityRouter);
 
   // Global Error Handler
   app.use(errorHandler);

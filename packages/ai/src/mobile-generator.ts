@@ -228,7 +228,7 @@ export class MobileScenarioGenerator {
       // 10. Payment & Checkout Flow
       {
         scenarioId: 'mob-10-payment-checkout',
-        title: 'Mobile In-App Purchase & Stripe/ApplePay Checkout',
+        title: 'Payment & Mobile In-App Purchase Checkout Flow',
         category: 'E-Commerce & Payments',
         framework,
         platform,

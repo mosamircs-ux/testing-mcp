@@ -333,10 +333,16 @@ model Finding {
   suggestedPatch     String?
   autoHealSelector   String?
   confidence         Float?
+  cwe                String?
+  affectedComponent  String?
   evidence           String?
   affectedFiles      String?
   affectedCode       String?
   regressionRisk     String?
+  risk               String?
+  remediation        String?
+  reproductionSteps  String?
+  references         String?
   fixApproved        Boolean       @default(false)
   fixAppliedAt       DateTime?
   verificationRunId  String?

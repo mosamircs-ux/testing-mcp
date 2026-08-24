@@ -16,6 +16,7 @@
     "@novaqa/auth": "*",
     "@novaqa/database": "*",
     "@novaqa/reporting": "*",
+    "@novaqa/security": "*",
     "@novaqa/shared": "*",
     "@novaqa/test-runner": "*",
     "@novaqa/types": "*",

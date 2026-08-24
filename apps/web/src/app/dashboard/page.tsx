@@ -279,6 +279,42 @@ export default async function DashboardPage() {
             </div>
           </div>
 
+          {/* Defensive AppSec Posture Widget */}
+          <div className="glass-panel p-4 rounded-xl border border-emerald-950/60 bg-gradient-to-b from-slate-900/90 to-emerald-950/10">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs font-bold text-white flex items-center gap-1.5">
+                <Shield className="h-4 w-4 text-emerald-400" />
+                AppSec Posture
+              </span>
+              <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-950 text-emerald-400 border border-emerald-800 font-mono font-bold">
+                GRADE A- (86/100)
+              </span>
+            </div>
+            <p className="text-[11px] text-slate-400">
+              Automated SAST & DAST vulnerability detection with CWE mapping.
+            </p>
+            <div className="grid grid-cols-3 gap-2 mt-3 text-center">
+              <div className="p-2 rounded bg-slate-950/60 border border-slate-800">
+                <div className="text-[10px] text-rose-400 font-bold uppercase">Critical</div>
+                <div className="text-sm font-extrabold text-white">0</div>
+              </div>
+              <div className="p-2 rounded bg-slate-950/60 border border-slate-800">
+                <div className="text-[10px] text-amber-400 font-bold uppercase">High</div>
+                <div className="text-sm font-extrabold text-white">2</div>
+              </div>
+              <div className="p-2 rounded bg-slate-950/60 border border-slate-800">
+                <div className="text-[10px] text-yellow-400 font-bold uppercase">Medium</div>
+                <div className="text-sm font-extrabold text-white">3</div>
+              </div>
+            </div>
+            <div className="mt-3 pt-2 border-t border-slate-800 flex items-center justify-between text-[11px]">
+              <span className="text-slate-400 font-mono">100% Non-destructive</span>
+              <Link href="/security" className="text-emerald-400 font-semibold hover:underline">
+                Audit Dashboard →
+              </Link>
+            </div>
+          </div>
+
           {/* Active Projects List */}
           <div>
             <div className="flex items-center justify-between mb-3">

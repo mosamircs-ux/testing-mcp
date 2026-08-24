@@ -61,7 +61,7 @@ export class MobileExecutionWorker extends EventEmitter {
     action: MobileActionType | string;
     target?: string;
     value?: string;
-    description: string;
+    description?: string;
   }): Promise<{ status: 'PASSED' | 'FAILED'; error?: string; logs: string[] }> {
     this.lastHeartbeat = new Date();
     const action = (step.action || '').toUpperCase();

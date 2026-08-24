@@ -69,9 +69,9 @@ export class MobileTestEngine implements TestEngine {
       const execResult = await this.worker.executeStep({
         order: step.order,
         action: step.action,
-        target: step.target,
-        value: step.value,
-        description: step.description
+        target: step.target || undefined,
+        value: step.value || undefined,
+        description: step.description || `Step ${step.order} - ${step.action}`
       });
 
       const durationMs = Date.now() - stepStartTime;

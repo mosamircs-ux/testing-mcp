@@ -46,7 +46,13 @@ export async function handleProjectCreate(args: {
   apiKey?: string;
 }) {
   const context = await getMcpTenantContext(args.apiKey);
-  const slug = args.slug || args.name.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+  let slug = args.slug || args.name.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+  const existing = await prisma.project.findFirst({
+    where: { organizationId: context.organizationId, slug }
+  });
+  if (existing) {
+    slug = `${slug}-${Date.now().toString(36)}`;
+  }
 
   const project = await prisma.project.create({
     data: {
@@ -1173,4 +1179,152 @@ export async function handleMobileCrashInspect(args: { testRunId?: string; testR
     content: [{ type: 'text', text: JSON.stringify(sanitizeMcpOutput(crashReport), null, 2) }]
   };
 }
+
+// ----------------------------------------------------------------------------
+// SECURITY TESTING & POSTURE TOOLS
+// ----------------------------------------------------------------------------
+
+export async function handleSecurityScanApi(args: {
+  targetUrl: string;
+  projectId?: string;
+  deepScan?: boolean;
+  apiKey?: string;
+}) {
+  await getMcpTenantContext(args.apiKey);
+  const { dastScanner } = await import('@novaqa/security');
+  const findings = await dastScanner.scanTarget({
+    targetUrl: args.targetUrl,
+    deepScan: args.deepScan
+  });
+
+  return {
+    content: [
+      {
+        type: 'text',
+        text: JSON.stringify(
+          sanitizeMcpOutput({
+            targetUrl: args.targetUrl,
+            findingsCount: findings.length,
+            findings
+          }),
+          null,
+          2
+        )
+      }
+    ]
+  };
+}
+
+export async function handleSecurityScanSource(args: {
+  sourceDirectory?: string;
+  fileContents?: Array<{ path: string; content: string }>;
+  apiKey?: string;
+}) {
+  await getMcpTenantContext(args.apiKey);
+  const { sastScanner } = await import('@novaqa/security');
+  const findings = await sastScanner.scanSource({
+    sourceDirectory: args.sourceDirectory,
+    fileContents: args.fileContents
+  });
+
+  return {
+    content: [
+      {
+        type: 'text',
+        text: JSON.stringify(
+          sanitizeMcpOutput({
+            findingsCount: findings.length,
+            findings
+          }),
+          null,
+          2
+        )
+      }
+    ]
+  };
+}
+
+export async function handleSecurityAuditFull(args: {
+  projectId: string;
+  targetUrl?: string;
+  sourceDirectory?: string;
+  persistFindings?: boolean;
+  apiKey?: string;
+}) {
+  const context = await getMcpTenantContext(args.apiKey);
+  const project = await prisma.project.findFirst({
+    where: { id: args.projectId, organizationId: context.organizationId }
+  });
+
+  if (!project) {
+    throw new Error(`Project ${args.projectId} not found in tenant organization.`);
+  }
+
+  const { securityOrchestrator } = await import('@novaqa/security');
+  const summary = await securityOrchestrator.runAudit({
+    projectId: project.id,
+    targetUrl: args.targetUrl || project.baseUrl || undefined,
+    sourceDirectory: args.sourceDirectory,
+    persistFindings: args.persistFindings !== false
+  });
+
+  return {
+    content: [
+      {
+        type: 'text',
+        text: JSON.stringify(sanitizeMcpOutput(summary), null, 2)
+      }
+    ]
+  };
+}
+
+export async function handleSecurityPostureGet(args: { projectId?: string; apiKey?: string }) {
+  const context = await getMcpTenantContext(args.apiKey);
+
+  const whereClause: any = {
+    project: { organizationId: context.organizationId }
+  };
+  if (args.projectId) {
+    whereClause.projectId = args.projectId;
+  }
+
+  const findings = await prisma.finding.findMany({
+    where: whereClause
+  });
+
+  const critical = findings.filter((f) => f.severity === 'CRITICAL').length;
+  const high = findings.filter((f) => f.severity === 'HIGH').length;
+  const medium = findings.filter((f) => f.severity === 'MEDIUM').length;
+  const low = findings.filter((f) => f.severity === 'LOW').length;
+
+  const deductions = critical * 25 + high * 10 + medium * 4 + low * 1;
+  const score = Math.max(0, Math.min(100, 100 - deductions));
+
+  let grade = 'A+';
+  if (score >= 95) grade = 'A+';
+  else if (score >= 90) grade = 'A';
+  else if (score >= 80) grade = 'B';
+  else if (score >= 70) grade = 'C';
+  else if (score >= 60) grade = 'D';
+  else grade = 'F';
+
+  return {
+    content: [
+      {
+        type: 'text',
+        text: JSON.stringify(
+          sanitizeMcpOutput({
+            score,
+            grade,
+            totalFindings: findings.length,
+            breakdown: { critical, high, medium, low }
+          }),
+          null,
+          2
+        )
+      }
+    ]
+  };
+}
+
 

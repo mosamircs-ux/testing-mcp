@@ -57,6 +57,13 @@ export default function RootLayout({
                 AI Findings
               </Link>
               <Link
+                href="/security"
+                className="px-3 py-1.5 text-sm font-medium text-emerald-300 hover:text-emerald-400 hover:bg-emerald-950/40 border border-emerald-900/40 rounded-lg transition-colors flex items-center gap-2"
+              >
+                <Shield className="h-4 w-4 text-emerald-400" />
+                AppSec Posture
+              </Link>
+              <Link
                 href="/settings/team"
                 className="px-3 py-1.5 text-sm font-medium text-slate-300 hover:text-cyan-400 hover:bg-slate-800/50 rounded-lg transition-colors flex items-center gap-2"
               >

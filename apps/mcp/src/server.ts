@@ -45,7 +45,11 @@ import {
   handleProjectAutoTest,
   handleMobileDeviceList,
   handleMobileScenarioGenerate,
-  handleMobileCrashInspect
+  handleMobileCrashInspect,
+  handleSecurityScanApi,
+  handleSecurityScanSource,
+  handleSecurityAuditFull,
+  handleSecurityPostureGet
 } from './tools.js';
 import { prisma } from '@novaqa/database';
 import { createChildLogger } from '@novaqa/shared';
@@ -507,6 +511,66 @@ export function createMcpServer() {
               testResultId: { type: 'string' }
             }
           }
+        },
+
+        // Security Testing & Posture Tools
+        {
+          name: 'security_scan_api',
+          description: 'Execute defensive, non-destructive Dynamic Application Security Testing (DAST) across API endpoints (Headers, CORS, Cookies, JWT, IDOR, Injection indicators, Rate Limiting, Debug Exposure).',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              targetUrl: { type: 'string', description: 'Base URL of authorized application/API target' },
+              projectId: { type: 'string', description: 'Associated Project ID' },
+              deepScan: { type: 'boolean', description: 'Enable comprehensive parameter fuzzing' }
+            },
+            required: ['targetUrl']
+          }
+        },
+        {
+          name: 'security_scan_source',
+          description: 'Execute Static Application Security Testing (SAST) source code scan (Hardcoded AWS/GitHub/Stripe secrets, dangerous eval/exec, insecure crypto, unsafe deserialization).',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              sourceDirectory: { type: 'string', description: 'Path to source repository directory' },
+              fileContents: {
+                type: 'array',
+                description: 'Array of source files with path and content strings',
+                items: {
+                  type: 'object',
+                  properties: {
+                    path: { type: 'string' },
+                    content: { type: 'string' }
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          name: 'security_audit_full',
+          description: 'Run comprehensive combined DAST + SAST security audit for a project, compute security posture score (0-100) and letter grade (A+ to F), and save findings to database.',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              projectId: { type: 'string', description: 'Target Project ID' },
+              targetUrl: { type: 'string', description: 'Optional override target URL' },
+              sourceDirectory: { type: 'string', description: 'Optional source directory to scan' },
+              persistFindings: { type: 'boolean', description: 'Persist findings to database (default true)' }
+            },
+            required: ['projectId']
+          }
+        },
+        {
+          name: 'security_posture_get',
+          description: 'Retrieve executive security posture score, letter grade (A+ to F), and vulnerability severity breakdown.',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              projectId: { type: 'string', description: 'Optional project ID' }
+            }
+          }
         }
       ]
     };
@@ -619,6 +683,16 @@ export function createMcpServer() {
           return await handleMobileScenarioGenerate(args as any);
         case 'mobile_crash_inspect':
           return await handleMobileCrashInspect(args as any);
+
+        // Security Testing & Posture Tools
+        case 'security_scan_api':
+          return await handleSecurityScanApi(args as any);
+        case 'security_scan_source':
+          return await handleSecurityScanSource(args as any);
+        case 'security_audit_full':
+          return await handleSecurityAuditFull(args as any);
+        case 'security_posture_get':
+          return await handleSecurityPostureGet(args as any);
 
         default:
           throw new Error(`Unknown tool: ${name}`);

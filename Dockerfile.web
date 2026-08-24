@@ -9,7 +9,7 @@ RUN apk add --no-cache libc6-compat
 COPY package*.json ./
 COPY packages/ ./packages/
 COPY apps/web/ ./apps/web/
-COPY tsconfig.json ./
+COPY tsconfig*.json ./
 
 RUN npm ci
 
